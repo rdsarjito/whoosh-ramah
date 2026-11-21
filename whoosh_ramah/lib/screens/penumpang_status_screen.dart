@@ -8,6 +8,7 @@ import '../services/permintaan_service.dart';
 import '../theme.dart';
 import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
+import 'keluarga_pantau_screen.dart';
 import 'segera_hadir_screen.dart';
 
 /// Layar 3 — Status pendampingan penumpang (design/Penumpang-Status.dc.html).
@@ -498,10 +499,17 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
             label: 'Bagikan ke keluarga',
             icon: Icons.share,
             height: 52,
-            onTap: () => _segeraHadir('Bagikan ke keluarga'),
+            onTap: _bagikanKeKeluarga,
           ),
         ],
       ),
+    );
+  }
+
+  /// Membuka layar pantau keluarga (layar 7).
+  void _bagikanKeKeluarga() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const KeluargaPantauScreen()),
     );
   }
 

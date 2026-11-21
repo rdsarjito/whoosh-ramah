@@ -3,14 +3,14 @@ import 'package:material_ui/material_ui.dart';
 import '../theme.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/train_illustration.dart';
+import 'keluarga_pantau_screen.dart';
 import 'penumpang_tiket_screen.dart';
 import 'petugas_tugas_screen.dart';
-import 'segera_hadir_screen.dart';
 
 /// Layar 0 — Pilih peran (design/Main.dc.html).
 ///
-/// Penumpang -> layar tiket; Petugas & Keluarga -> layar "Segera hadir"
-/// (diganti di Langkah 6 & 7).
+/// Penumpang -> layar tiket; Petugas -> daftar tugas; Keluarga -> pantau
+/// perjalanan.
 class PilihPeranScreen extends StatelessWidget {
   const PilihPeranScreen({super.key});
 
@@ -124,7 +124,7 @@ class PilihPeranScreen extends StatelessWidget {
                     badgeColor: AppColors.greenHero,
                     iconColor: AppColors.greenFamily,
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SegeraHadirScreen(title: 'Keluarga')),
+                      MaterialPageRoute(builder: (_) => const KeluargaPantauScreen()),
                     ),
                   ),
                 ],
