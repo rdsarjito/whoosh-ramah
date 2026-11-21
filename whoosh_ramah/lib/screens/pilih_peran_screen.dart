@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/train_illustration.dart';
 import 'penumpang_tiket_screen.dart';
+import 'petugas_tugas_screen.dart';
 import 'segera_hadir_screen.dart';
 
 /// Layar 0 — Pilih peran (design/Main.dc.html).
@@ -112,7 +113,7 @@ class PilihPeranScreen extends StatelessWidget {
                     badgeColor: AppColors.blueHero,
                     iconColor: AppColors.blueOfficer,
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SegeraHadirScreen(title: 'Petugas stasiun')),
+                      MaterialPageRoute(builder: (_) => const PetugasTugasScreen()),
                     ),
                   ),
                   const SizedBox(height: 12),
