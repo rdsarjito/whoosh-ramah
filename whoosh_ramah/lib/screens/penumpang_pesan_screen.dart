@@ -4,6 +4,7 @@ import '../data/dummy.dart';
 import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
+import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
 import 'penumpang_status_screen.dart';
 
@@ -109,7 +110,7 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
                 children: [
                   Row(
                     children: [
-                      _HeroBack(onTap: () => Navigator.maybePop(context)),
+                      HeroBackButton(label: 'Kembali ke tiket', onTap: () => Navigator.maybePop(context)),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
@@ -328,34 +329,6 @@ class _Heading extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
-    );
-  }
-}
-
-/// Tombol kembali bulat putih di hero (chevron kiri).
-class _HeroBack extends StatelessWidget {
-  const _HeroBack({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Kembali ke tiket',
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.chevron_left, size: 28, color: AppColors.textPrimary),
-          ),
-        ),
-      ),
     );
   }
 }

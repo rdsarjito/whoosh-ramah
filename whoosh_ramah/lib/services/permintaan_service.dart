@@ -8,10 +8,14 @@ import '../models/permintaan.dart';
 /// Nama koleksi & field harus sama persis dengan yang ditulis
 /// `detector/detect_wheelchair.py` agar tugas dari kamera AI ikut terbaca.
 class PermintaanService {
-  PermintaanService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+  /// [firestore] opsional (posisional) untuk pengujian; bila null pakai instance.
+  PermintaanService([this._firestore]);
 
-  final FirebaseFirestore _db;
+  final FirebaseFirestore? _firestore;
+
+  /// `FirebaseFirestore` diakses malas agar konstruktor tidak menyentuh
+  /// `FirebaseFirestore.instance` — memudahkan pengujian tanpa Firebase.
+  FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('permintaan_pendampingan');
@@ -44,7 +48,10 @@ class PermintaanService {
       'catatan': catatan,
       'petugas': null,
       'riwayat': <Map<String, dynamic>>[
-        <String, dynamic>{'status': StatusPermintaan.menunggu.value, 'waktu': Timestamp.now()},
+        <String, dynamic>{
+          'status': StatusPermintaan.menunggu.value,
+          'waktu': Timestamp.now(),
+        },
       ],
       'dibuatPada': FieldValue.serverTimestamp(),
       'diperbaruiPada': FieldValue.serverTimestamp(),
@@ -55,8 +62,10 @@ class PermintaanService {
 
   /// Mendengarkan satu dokumen permintaan (untuk layar status penumpang).
   /// Mengembalikan null bila dokumen tidak ada.
-  Stream<Permintaan?> streamPermintaan(String id) =>
-      _col.doc(id).snapshots().map((snap) => snap.exists ? Permintaan.fromFirestore(snap) : null);
+  Stream<Permintaan?> streamPermintaan(String id) => _col
+      .doc(id)
+      .snapshots()
+      .map((snap) => snap.exists ? Permintaan.fromFirestore(snap) : null);
 
   /// Mendengarkan seluruh koleksi, terbaru di atas, maksimal 100.
   ///
@@ -72,15 +81,13 @@ class PermintaanService {
   ///
   /// Sengaja tanpa `orderBy` (where + orderBy butuh composite index): dokumen
   /// diurutkan di sisi aplikasi berdasarkan `dibuatPada`, lalu ambil yang terbaru.
-  Stream<Permintaan?> streamTerbaruPenumpang(String idPenumpang) => _col
-      .where('idPenumpang', isEqualTo: idPenumpang)
-      .snapshots()
-      .map((snap) {
-    final docs = snap.docs.toList();
-    if (docs.isEmpty) return null;
-    docs.sort(_urutDibuatPadaDesc);
-    return Permintaan.fromFirestore(docs.first);
-  });
+  Stream<Permintaan?> streamTerbaruPenumpang(String idPenumpang) =>
+      _col.where('idPenumpang', isEqualTo: idPenumpang).snapshots().map((snap) {
+        final docs = snap.docs.toList();
+        if (docs.isEmpty) return null;
+        docs.sort(_urutDibuatPadaDesc);
+        return Permintaan.fromFirestore(docs.first);
+      });
 
   /// Memajukan status ke tahap berikutnya (menunggu -> ... -> selesai).
   ///

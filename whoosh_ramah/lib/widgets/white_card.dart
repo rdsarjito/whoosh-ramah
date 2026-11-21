@@ -4,9 +4,10 @@ import '../theme.dart';
 
 /// Kartu putih utama: radius 24–28, bayangan lembut (blur 34, y 14, 10%).
 ///
-/// [margin] boleh negatif di atas (mis. `EdgeInsets.only(top: -48, ...)`),
-/// sehingga kartu menumpuk di atas hero. Karena digambar setelah hero di
-/// dalam Column, kartu otomatis tampil di lapisan atas.
+/// [margin] harus non-negatif — `Container` menolak margin/padding negatif.
+/// Untuk menumpuk kartu di atas hero, geser seluruh isi di bawah hero dengan
+/// `Transform.translate(offset: Offset(0, -N))` di layar pemanggil (setara
+/// `margin-top` negatif pada design).
 class WhiteCard extends StatelessWidget {
   const WhiteCard({
     super.key,
