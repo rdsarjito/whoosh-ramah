@@ -1,0 +1,5 @@
+detector/firebase-key.json
+detector/.env
+detector/venv/
+*.pt
+.DS_Store

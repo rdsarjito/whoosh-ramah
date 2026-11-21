@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400262474678",
+    "project_id": "whoosh-ramah",
+    "storage_bucket": "whoosh-ramah.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400262474678:android:d7e0ee9206fc555a212f17",
+        "android_client_info": {
+          "package_name": "id.kcic.whoosh_ramah"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAe1OIAg-lojEanVIMFrtGv24GHfHU8_lU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

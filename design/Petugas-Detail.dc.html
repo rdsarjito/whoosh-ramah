@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Petugas – Detail tugas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1E50C8;text-decoration:none}a:hover{color:#163C96}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F5F6FA; font-family: Nunito, 'Trebuchet MS', Arial, sans-serif; color: #1F2430; display: flex; flex-direction: column; overflow: hidden">
+  <div style="background: #E3ECFF; border-radius: 0 0 36px 36px; padding: 44px 20px 64px; display: flex; align-items: center; gap: 12px">
+    <a href="Petugas-Tugas.dc.html" aria-label="Kembali ke daftar tugas" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 22px; background: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F2430" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -0.3px">Detail tugas</h1>
+    <div style="flex: 1"></div>
+    <span style="height: 30px; padding: 0 12px; border-radius: 15px; background: #FFFFFF; color: #1E50C8; display: flex; align-items: center; font-size: 13px; font-weight: 900">Aplikasi</span>
+  </div>
+
+  <div style="margin: -44px 18px 0; background: #FFFFFF; border-radius: 28px; padding: 18px; box-shadow: 0 14px 34px rgba(31,36,48,0.10); display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; gap: 14px; align-items: center">
+      <div style="width: 56px; height: 56px; flex-shrink: 0; border-radius: 28px; background: #FFE4E8; color: #B00E28; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 900">SA</div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 20px; font-weight: 900">Siti Aminah</span>
+        <span style="align-self: flex-start; height: 26px; padding: 0 10px; border-radius: 13px; background: #FFE4E8; color: #B00E28; display: flex; align-items: center; font-size: 13px; font-weight: 900">Kursi roda</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <div style="background: #F3F4F8; border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; font-weight: 800; color: #5F6574">Titik jemput</span><span style="font-size: 15px; font-weight: 900">Lobi drop-off</span></div>
+      <div style="background: #F3F4F8; border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; font-weight: 800; color: #5F6574">Kereta</span><span style="font-size: 15px; font-weight: 900">G1123 · 08.10</span></div>
+      <div style="background: #F3F4F8; border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; font-weight: 800; color: #5F6574">Kursi</span><span style="font-size: 15px; font-weight: 900">Gerbong 5 · 7A</span></div>
+      <div style="background: #F3F4F8; border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; font-weight: 800; color: #5F6574">Tujuan</span><span style="font-size: 15px; font-weight: 900">Tegalluar</span></div>
+    </div>
+    <div style="background: #FFF3D6; border-radius: 16px; padding: 10px 14px; font-size: 14px; font-weight: 700; line-height: 1.45; color: #5C3D00"><b>Catatan:</b> membawa satu koper besar</div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <a href="#" style="height: 46px; border-radius: 23px; border: 2px solid #E4E6EE; display: flex; align-items: center; justify-content: center; color: #1F2430; font-size: 15px; font-weight: 800">Kirim pesan</a>
+      <a href="#" style="height: 46px; border-radius: 23px; border: 2px solid #E4E6EE; display: flex; align-items: center; justify-content: center; color: #1F2430; font-size: 15px; font-weight: 800">Telepon</a>
+    </div>
+  </div>
+
+  <div style="margin: 14px 18px 0; background: #FFFFFF; border-radius: 24px; padding: 16px 18px; box-shadow: 0 8px 22px rgba(31,36,48,0.06); display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 12px; font-weight: 900; letter-spacing: 1.2px; color: #5F6574">STATUS PENDAMPINGAN</span>
+    <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 30px">
+        <sc-if value="{{s.done}}" hint-placeholder-val="{{false}}">
+          <div style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 14px; background: #17663F; display: flex; align-items: center; justify-content: center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          </div>
+          <span style="font-size: 15px; font-weight: 800">{{s.label}}</span>
+        </sc-if>
+        <sc-if value="{{s.current}}" hint-placeholder-val="{{false}}">
+          <div style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 14px; border: 4px solid #1E50C8; box-sizing: border-box; display: flex; align-items: center; justify-content: center"><div style="width: 8px; height: 8px; border-radius: 4px; background: #1E50C8"></div></div>
+          <span style="font-size: 15px; font-weight: 900; color: #1E50C8">{{s.label}} · sekarang</span>
+        </sc-if>
+        <sc-if value="{{s.todo}}" hint-placeholder-val="{{true}}">
+          <div style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 14px; border: 3px solid #C9CDD6; box-sizing: border-box"></div>
+          <span style="font-size: 15px; font-weight: 700; color: #5F6574">{{s.label}}</span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1"></div>
+  <div style="padding: 0 18px 20px; display: flex; flex-direction: column; gap: 8px">
+    <sc-if value="{{notFinished}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{next}}" style="height: 60px; border: none; border-radius: 30px; background: #1E50C8; color: #FFFFFF; font-size: 18px; font-weight: 900; box-shadow: 0 10px 22px rgba(30,80,200,0.25)">{{buttonLabel}}</button>
+    </sc-if>
+    <sc-if value="{{finished}}" hint-placeholder-val="{{false}}">
+      <div style="height: 60px; border-radius: 30px; background: #E3F4EA; color: #17663F; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900">Tugas selesai · terima kasih!</div>
+    </sc-if>
+    <span style="font-size: 13px; font-weight: 700; text-align: center; color: #5F6574">Setiap perubahan langsung terlihat oleh penumpang dan keluarga</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 1 };
+  }
+  renderVals() {
+    const labels = [
+      'Tugas diterima',
+      'Bertemu penumpang',
+      'Penumpang di kursi 7A',
+      'Diserahkan ke petugas Tegalluar'
+    ];
+    const buttons = [
+      'Terima tugas',
+      'Sudah bertemu penumpang',
+      'Penumpang sudah di kursi',
+      'Serahkan ke petugas Tegalluar'
+    ];
+    const step = this.state.step;
+    const steps = labels.map((label, i) => ({
+      label,
+      done: i < step,
+      current: i === step,
+      todo: i > step
+    }));
+    const finished = step >= labels.length;
+    return {
+      steps,
+      finished,
+      notFinished: !finished,
+      buttonLabel: finished ? '' : buttons[step],
+      next: () => this.setState({ step: Math.min(step + 1, labels.length) })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+opencv-python>=4.8
+python-dotenv>=1.0
+firebase-admin>=6.4
+inference-sdk>=0.20
+# Untuk Jalan B (model lokal). Boleh dilewati kalau hanya pakai Roboflow.
+ultralytics>=8.2
