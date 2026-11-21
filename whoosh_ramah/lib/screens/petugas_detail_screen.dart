@@ -135,14 +135,17 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
             onTap: () => Navigator.maybePop(context),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Detail tugas',
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-                color: AppColors.textPrimary,
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: const Text(
+                'Detail tugas',
+                style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
           ),
@@ -355,7 +358,8 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
         children: [
           if (selesai)
             Container(
-              height: 60,
+              constraints: const BoxConstraints(minHeight: 60),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.greenHero,
                 borderRadius: BorderRadius.circular(30),
@@ -363,6 +367,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
               alignment: Alignment.center,
               child: const Text(
                 'Tugas selesai · terima kasih!',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.greenFamily),
               ),
             )
@@ -595,9 +600,9 @@ class _TombolGaris extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 46,
+            height: 48,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(23),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppColors.outline, width: 2),
             ),
             alignment: Alignment.center,
@@ -636,7 +641,8 @@ class _TombolAksi extends StatelessWidget {
           onTap: onPressed,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 60,
+            constraints: const BoxConstraints(minHeight: 60),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.blueOfficer.withValues(alpha: loading ? 0.6 : 1),
               borderRadius: BorderRadius.circular(30),
@@ -651,13 +657,10 @@ class _TombolAksi extends StatelessWidget {
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                   )
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
-                    ),
+                : Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
                   ),
           ),
         ),

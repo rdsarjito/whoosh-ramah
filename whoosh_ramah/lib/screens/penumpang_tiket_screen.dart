@@ -42,14 +42,17 @@ class PenumpangTiketScreen extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            'Selamat datang, ${DummyData.penumpang.namaPenumpang}',
-                            style: const TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              height: 1.15,
-                              letterSpacing: -0.5,
-                              color: AppColors.textPrimary,
+                          child: Semantics(
+                            header: true,
+                            child: Text(
+                              'Selamat datang, ${DummyData.penumpang.namaPenumpang}',
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                height: 1.15,
+                                letterSpacing: -0.5,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
                         ),
@@ -114,12 +117,14 @@ class PenumpangTiketScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              Text(
-                                t.kelas,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textSecondary,
+                              Flexible(
+                                child: Text(
+                                  t.kelas,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -194,7 +199,12 @@ class PenumpangTiketScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                const Text('Butuh pendampingan'),
+                                const Flexible(
+                                  child: Text(
+                                    'Butuh pendampingan',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
                                 const Icon(
                                   Icons.arrow_forward,
@@ -273,13 +283,18 @@ class _TimePoint extends StatelessWidget {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          time,
-          style: const TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-            color: AppColors.textPrimary,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            time,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 36,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         const SizedBox(height: 4),
@@ -339,22 +354,32 @@ class _TicketInfo extends StatelessWidget {
             : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-              color: AppColors.textSecondary,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textPrimary,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],

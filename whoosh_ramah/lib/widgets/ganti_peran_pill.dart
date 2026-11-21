@@ -5,7 +5,8 @@ import '../theme.dart';
 /// Pill "Ganti peran" di pojok kiri atas hero (kembali ke layar pilih peran).
 ///
 /// Tanpa [onPressed], default-nya `Navigator.maybePop()`. Ikon panah bersifat
-/// dekoratif; label aksesibilitas diambil dari teks (MergeSemantics).
+/// dekoratif; label aksesibilitas diambil dari teks (MergeSemantics). Area
+/// sentuh 48dp (bagian 8).
 class GantiPeranPill extends StatelessWidget {
   const GantiPeranPill({super.key, this.onPressed, this.label = 'Ganti peran'});
 
@@ -20,13 +21,13 @@ class GantiPeranPill extends StatelessWidget {
         button: true,
         child: InkResponse(
           onTap: handler,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           child: Container(
-            height: 44,
+            height: 48,
             padding: const EdgeInsets.fromLTRB(10, 0, 16, 0),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

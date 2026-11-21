@@ -1,4 +1,3 @@
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Palet warna gaya "Cerah & ramah" (PROJECT.md bagian 7).
@@ -63,9 +62,13 @@ class AppShadows {
   ];
 }
 
-/// Tema aplikasi: warna, font Nunito, serta gaya tombol & kartu (bagian 7).
+/// Tema aplikasi: warna, font Nunito (dibundel di assets/fonts), serta gaya
+/// tombol & kartu (bagian 7).
 class AppTheme {
   AppTheme._();
+
+  /// Family font lokal (lihat bagian `fonts` di pubspec.yaml).
+  static const String fontFamily = 'Nunito';
 
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
@@ -82,6 +85,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: fontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.redPrimary,
@@ -109,24 +113,25 @@ class AppTheme {
   }
 
   /// Font Nunito dengan ukuran/berat sesuai panduan: minimum 13, teks utama
-  /// 15–17, judul 25–30, berat 600–900.
+  /// 15–17, judul 25–30, berat 600–900. Family diisi otomatis oleh
+  /// [ThemeData.fontFamily] ('Nunito').
   static TextTheme _textTheme() {
     const primary = AppColors.textPrimary;
     const secondary = AppColors.textSecondary;
-    return GoogleFonts.nunitoTextTheme().copyWith(
-      displayLarge: GoogleFonts.nunito(fontSize: 30, fontWeight: FontWeight.w900, color: primary, height: 1.15),
-      displayMedium: GoogleFonts.nunito(fontSize: 28, fontWeight: FontWeight.w900, color: primary, height: 1.15),
-      displaySmall: GoogleFonts.nunito(fontSize: 25, fontWeight: FontWeight.w900, color: primary, height: 1.2),
-      headlineMedium: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w900, color: primary),
-      titleLarge: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w900, color: primary),
-      titleMedium: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800, color: primary),
-      titleSmall: GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
-      bodyLarge: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w600, color: primary, height: 1.4),
-      bodyMedium: GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w600, color: primary, height: 1.45),
-      bodySmall: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w700, color: secondary, height: 1.4),
-      labelLarge: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w900, color: primary),
-      labelMedium: GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
-      labelSmall: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w800, color: secondary),
+    return const TextTheme(
+      displayLarge: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: primary, height: 1.15),
+      displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: primary, height: 1.15),
+      displaySmall: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: primary, height: 1.2),
+      headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: primary),
+      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: primary),
+      titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: primary),
+      titleSmall: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
+      bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: primary, height: 1.4),
+      bodyMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: primary, height: 1.45),
+      bodySmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: secondary, height: 1.4),
+      labelLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: primary),
+      labelMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
+      labelSmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: secondary),
     );
   }
 
@@ -138,7 +143,7 @@ class AppTheme {
       disabledBackgroundColor: AppColors.redPrimary.withValues(alpha: 0.5),
       elevation: 0,
       minimumSize: const Size(0, 60),
-      textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w900),
+      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 18, fontWeight: FontWeight.w900),
       shape: const StadiumBorder(),
       tapTargetSize: MaterialTapTargetSize.padded, // Area sentuh >= 48dp (aksesibilitas)
     );
@@ -150,7 +155,7 @@ class AppTheme {
       foregroundColor: AppColors.textPrimary,
       minimumSize: const Size(0, 52),
       side: const BorderSide(color: AppColors.outline, width: 2),
-      textStyle: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800),
+      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.w800),
       shape: const StadiumBorder(),
       tapTargetSize: MaterialTapTargetSize.padded,
     );

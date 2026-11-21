@@ -73,19 +73,22 @@ class _NavItem extends StatelessWidget {
           onTap: item.onTap,
           borderRadius: BorderRadius.circular(20),
           child: Container(
-            height: 52,
+            constraints: const BoxConstraints(minHeight: 52),
             margin: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
             decoration: BoxDecoration(
               color: item.active ? activeBackground : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(item.icon, size: 22, color: color),
                 const SizedBox(height: 2),
                 Text(
                   item.label,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: item.active ? FontWeight.w800 : FontWeight.w700,

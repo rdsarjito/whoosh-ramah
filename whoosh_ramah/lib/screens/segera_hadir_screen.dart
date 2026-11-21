@@ -3,11 +3,11 @@ import 'package:material_ui/material_ui.dart';
 import '../theme.dart';
 import '../widgets/ganti_peran_pill.dart';
 
-/// Layar sementara untuk peran/tujuan yang belum dibangun.
+/// Layar sementara untuk aksi demo yang belum punya fitur sungguhan
+/// (mis. "Kirim pesan", "Telepon", "Hubungi petugas").
 ///
-/// Petugas & Keluarga diganti di Langkah 6 & 7; tombol "Butuh pendampingan"
-/// di layar tiket diganti di Langkah 4. Menampilkan "Segera hadir" + tombol
-/// "Ganti peran" yang kembali ke layar pilih peran (root).
+/// Menampilkan judul aksi + "Segera hadir" dan tombol "Ganti peran" yang
+/// kembali ke layar pilih peran (root).
 class SegeraHadirScreen extends StatelessWidget {
   const SegeraHadirScreen({super.key, required this.title});
 

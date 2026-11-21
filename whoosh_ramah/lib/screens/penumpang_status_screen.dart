@@ -227,14 +227,17 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
             children: [
               HeroBackButton(label: 'Kembali ke tiket', onTap: _kembaliKeTiket),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Pendampingan Anda',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                    color: AppColors.textPrimary,
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: const Text(
+                    'Pendampingan Anda',
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.3,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -548,8 +551,8 @@ class _StatusPill extends StatelessWidget {
     return Semantics(
       label: ringkasan.label,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
+        constraints: const BoxConstraints(minHeight: 40),
+        padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -567,12 +570,14 @@ class _StatusPill extends StatelessWidget {
               child: Icon(ringkasan.icon, size: 16, color: Colors.white),
             ),
             const SizedBox(width: 8),
-            Text(
-              ringkasan.label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: ringkasan.color,
+            Flexible(
+              child: Text(
+                ringkasan.label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: ringkasan.color,
+                ),
               ),
             ),
           ],
@@ -800,7 +805,8 @@ class _CtaUtama extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 60,
+            constraints: const BoxConstraints(minHeight: 60),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.redPrimary,
               borderRadius: BorderRadius.circular(30),
@@ -815,6 +821,7 @@ class _CtaUtama extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,

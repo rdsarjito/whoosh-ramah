@@ -1,15 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:whoosh_ramah/screens/penumpang_pesan_screen.dart';
 import 'package:whoosh_ramah/theme.dart';
 
 void main() {
-  setUpAll(() {
-    // Cegah google_fonts mengambil font lewat jaringan saat test.
-    GoogleFonts.config.allowRuntimeFetching = false;
-  });
-
   Future<void> bukaLayar(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));

@@ -147,13 +147,16 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            'Perjalanan Ibu $_namaDepan',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.3,
-              color: AppColors.textPrimary,
+          Semantics(
+            header: true,
+            child: Text(
+              'Perjalanan Ibu $_namaDepan',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -693,7 +696,8 @@ class _TombolHijau extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 58,
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.greenFamily,
               borderRadius: BorderRadius.circular(29),
@@ -706,12 +710,15 @@ class _TombolHijau extends StatelessWidget {
               children: [
                 const Icon(Icons.call, size: 20, color: Colors.white),
                 const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],

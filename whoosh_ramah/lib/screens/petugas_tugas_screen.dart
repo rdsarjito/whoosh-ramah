@@ -177,13 +177,16 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Halo, ${DummyData.petugas.nama}',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3,
-                        color: AppColors.textPrimary,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        'Halo, ${DummyData.petugas.nama}',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.3,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -394,9 +397,17 @@ class _TaskCard extends StatelessWidget {
                     ),
                     if (waktu.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        waktu,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                      Flexible(
+                        child: Text(
+                          waktu,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ],
                   ],

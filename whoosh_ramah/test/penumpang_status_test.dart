@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:whoosh_ramah/models/permintaan.dart';
 import 'package:whoosh_ramah/screens/penumpang_status_screen.dart';
@@ -28,8 +27,6 @@ class _LoadingService extends PermintaanService {
 }
 
 void main() {
-  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
-
   Future<void> buka(WidgetTester tester, Permintaan? data) async {
     await tester.binding.setSurfaceSize(const Size(420, 1500));
     addTearDown(() => tester.binding.setSurfaceSize(null));

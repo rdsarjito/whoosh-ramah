@@ -302,9 +302,12 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Kirim permintaan',
-                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white),
+                        Flexible(
+                          child: Text(
+                            'Kirim permintaan',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
                         ),
                         SizedBox(width: 10),
                         Icon(Icons.arrow_forward, size: 22, color: Colors.white),
@@ -326,9 +329,12 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+    return Semantics(
+      header: true,
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+      ),
     );
   }
 }

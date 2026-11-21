@@ -40,7 +40,8 @@ class PillButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
             child: Center(
-              child: DefaultTextStyle(
+              // merge (bukan timpa) agar family Nunito dari tema tetap terpakai.
+              child: DefaultTextStyle.merge(
                 style: TextStyle(color: foregroundColor, fontSize: 19, fontWeight: FontWeight.w900),
                 textAlign: TextAlign.center,
                 child: IconTheme(
