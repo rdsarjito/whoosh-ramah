@@ -3,7 +3,7 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-11-22T12:45:12Z"
+exported_at: "2026-11-22T13:42:49Z"
 modules:
     "":
         dir_name: Whoosh Ramah Hackathon Platform
@@ -30,8 +30,8 @@ modules:
         related_to:
             - path: whoosh_ramah_app/app_shell
     wheelchair_detector:
-        dir_name: Wheelchair Detection & Assistance Request Inference Service
-        title: Wheelchair Detection & Assistance Request Inference Service
+        dir_name: Wheelchair Detection & Assistance Request Emitter
+        title: Wheelchair Detection & Assistance Request Emitter
         scope:
             - detector/
         source_files: []

@@ -421,4 +421,119 @@ void main() {
       expect(await jumlah(), 0);
     });
   });
+
+  group('tolakTugas & streamFoto — O1 + A3', () {
+    /// Dokumen kamera AI minimal, meniru tulisan detektor (tanpa riwayat).
+    Map<String, dynamic> dokKamera({
+      String status = 'menunggu',
+      int menit = 0,
+    }) =>
+        <String, dynamic>{
+          'jenisBantuan': 'kursi_roda',
+          'titikJemput': 'Stasiun Halim - Pintu Masuk Utara',
+          'status': status,
+          'sumber': 'kamera_ai',
+          'idKamera': 'halim-utara-01',
+          'keyakinan': 0.87,
+          'dibuatPada': _jam(menit),
+        };
+
+    test('menulis ditolakPada + alasanTolak; status & riwayat tidak disentuh',
+        () async {
+      final id = await seed(dokKamera());
+      await svc.tolakTugas(id, alasan: 'Bukan pengguna kursi roda');
+
+      final data = await baca(id);
+      expect(data['ditolakPada'], isA<Timestamp>());
+      expect(data['alasanTolak'], 'Bukan pengguna kursi roda');
+      expect(data['diperbaruiPada'], isA<Timestamp>());
+      // Kontrak bagian 4: enum status tetap, tidak ada nilai "ditolak".
+      expect(data['status'], 'menunggu');
+      expect(data['riwayat'], isNull);
+
+      final p = (await svc.streamPermintaan(id).first)!;
+      expect(p.sudahDitolak, isTrue);
+      expect(p.bisaDitolak, isFalse);
+    });
+
+    test('idempoten: tolak kedua tidak menggeser waktu maupun alasan',
+        () async {
+      final id = await seed(dokKamera());
+      await svc.tolakTugas(id, alasan: 'Bukan pengguna kursi roda');
+      final pertama = await baca(id);
+      await svc.tolakTugas(id, alasan: 'coba lagi');
+      expect(await baca(id), pertama);
+    });
+
+    test('penjaga: tugas aplikasi, selesai, dan tidak ada tidak ditolak',
+        () async {
+      final aplikasi = await seed(dok());
+      final sebelumAplikasi = await baca(aplikasi);
+      await svc.tolakTugas(aplikasi);
+      expect(await baca(aplikasi), sebelumAplikasi);
+
+      final selesai = await seed(dokKamera(status: 'selesai', menit: 5));
+      final sebelumSelesai = await baca(selesai);
+      await svc.tolakTugas(selesai);
+      expect(await baca(selesai), sebelumSelesai);
+
+      await svc.tolakTugas('tidak-ada');
+      expect(await jumlah(), 2);
+    });
+
+    test('majukanStatus pada tugas yang sudah ditolak tidak menulis apa-apa',
+        () async {
+      final id = await seed(dokKamera());
+      await svc.tolakTugas(id);
+      final sebelum = await baca(id);
+      await svc.majukanStatus(id);
+      expect(await baca(id), sebelum);
+    });
+
+    test('tolak & majukan bersamaan diurutkan: ditolak menang, status tetap',
+        () async {
+      final id = await seed(dokKamera());
+      await Future.wait<void>(<Future<void>>[
+        svc.tolakTugas(id),
+        svc.majukanStatus(id),
+      ]);
+      final data = await baca(id);
+      expect(data['ditolakPada'], isA<Timestamp>());
+      expect(data['status'], 'menunggu');
+    });
+
+    test('streamFoto: null -> cuplikan hadir -> null lagi setelah dihapus',
+        () async {
+      final id = await seed(dokKamera());
+      final fotoRef = db.collection('permintaan_foto').doc(id);
+      final perubahan = svc.streamFoto(id).take(3).toList();
+
+      await fotoRef.set(<String, dynamic>{
+        'gambar': 'aGVsbw==', // base64 "hello" — cukup untuk uji dekode
+        'dibuatPada': _jam(0),
+        'kedaluwarsaPada':
+            Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 10))),
+      });
+      await fotoRef.delete(); // detektor menghapus setelah TTL
+
+      final hasil = await perubahan;
+      expect(hasil[0], isNull);
+      expect(hasil[1], isNotNull);
+      expect(hasil[1]!.bytes, isNotNull);
+      expect(hasil[1]!.kedaluwarsa(DateTime.now()), isFalse);
+      expect(hasil[2], isNull);
+    });
+
+    test('streamFoto: kedaluwarsaPada yang sudah lewat ditandai kedaluwarsa',
+        () async {
+      final id = await seed(dokKamera());
+      await db.collection('permintaan_foto').doc(id).set(<String, dynamic>{
+        'gambar': 'aGVsbw==',
+        'kedaluwarsaPada':
+            Timestamp.fromDate(DateTime.now().subtract(const Duration(minutes: 1))),
+      });
+      final foto = await svc.streamFoto(id).first;
+      expect(foto!.kedaluwarsa(DateTime.now()), isTrue);
+    });
+  });
 }

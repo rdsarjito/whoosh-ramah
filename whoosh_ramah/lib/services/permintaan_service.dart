@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/dummy.dart';
+import '../models/foto_permintaan.dart';
 import '../models/permintaan.dart';
 
 /// Hasil [PermintaanService.buatPermintaan].
@@ -123,10 +124,36 @@ class PermintaanService {
         return Permintaan.fromFirestore(docs.first);
       });
 
-  /// Antrean per-id untuk [majukanStatus]. Ketukan ganda pada perangkat yang
-  /// sama diurutkan supaya panggilan kedua membaca status yang sudah dimajukan
-  /// panggilan pertama; antar perangkat, transaksi Firestore yang menjaga.
+  /// Mendengarkan cuplikan verifikasi anonim satu tugas (koleksi
+  /// `permintaan_foto/{idTugas}`, PROJECT.md bagian 4). Mengembalikan null
+  /// bila dokumen foto tidak ada — sudah dihapus detektor setelah TTL —
+  /// sehingga UI menampilkan state "Cuplikan sudah kedaluwarsa".
+  /// Hanya layar petugas yang memakai ini (need-to-know).
+  Stream<FotoPermintaan?> streamFoto(String idTugas) => _db
+      .collection('permintaan_foto')
+      .doc(idTugas)
+      .snapshots()
+      .map((snap) => snap.exists ? FotoPermintaan.fromFirestore(snap) : null);
+
+  /// Antrean per-id untuk [majukanStatus] dan [tolakTugas]. Ketukan ganda pada
+  /// perangkat yang sama diurutkan supaya panggilan kedua membaca status yang
+  /// sudah dimajukan panggilan pertama; antar perangkat, transaksi Firestore
+  /// yang menjaga.
   final Map<String, Future<void>> _antreanMaju = <String, Future<void>>{};
+
+  /// Menjalankan [aksi] dalam antrean per-id: tulisan pada satu dokumen tidak
+  /// berpacu. Ekor antrean tidak boleh ikut gagal — panggilan berikutnya harus
+  /// tetap berjalan walau panggilan ini melempar (mis. jaringan putus).
+  Future<void> _antrePerId(String id, Future<void> Function() aksi) {
+    final ekor = _antreanMaju[id] ?? Future<void>.value();
+    final hasil = ekor.then((_) => aksi());
+    final ekorBaru = hasil.then<void>((_) {}, onError: (Object _) {});
+    _antreanMaju[id] = ekorBaru;
+    ekorBaru.whenComplete(() {
+      if (identical(_antreanMaju[id], ekorBaru)) _antreanMaju.remove(id);
+    });
+    return hasil;
+  }
 
   /// Memajukan status ke tahap berikutnya (menunggu -> ... -> selesai).
   ///
@@ -140,19 +167,10 @@ class PermintaanService {
   /// BUKAN serverTimestamp — arrayUnion tidak menerima sentinel), dan mengisi
   /// `petugas` = "Rina" saat jadi `ditugaskan`.
   /// Tidak melakukan apa-apa bila dokumen tidak ada, status sudah `selesai`,
-  /// atau tahap berikutnya sudah tercatat di `riwayat` (transaksi kembar).
-  Future<void> majukanStatus(String id) {
-    final ekor = _antreanMaju[id] ?? Future<void>.value();
-    final hasil = ekor.then((_) => _majukanDalamTransaksi(id));
-    // Ekor antrean tidak boleh ikut gagal: panggilan berikutnya harus tetap
-    // berjalan walau panggilan ini melempar (mis. jaringan putus).
-    final ekorBaru = hasil.then<void>((_) {}, onError: (Object _) {});
-    _antreanMaju[id] = ekorBaru;
-    ekorBaru.whenComplete(() {
-      if (identical(_antreanMaju[id], ekorBaru)) _antreanMaju.remove(id);
-    });
-    return hasil;
-  }
+  /// tugas sudah ditolak, atau tahap berikutnya sudah tercatat di `riwayat`
+  /// (transaksi kembar).
+  Future<void> majukanStatus(String id) =>
+      _antrePerId(id, () => _majukanDalamTransaksi(id));
 
   Future<void> _majukanDalamTransaksi(String id) async {
     final ref = _col.doc(id);
@@ -161,6 +179,8 @@ class PermintaanService {
       final snap = await tx.get(ref);
       final data = snap.data();
       if (data == null) return;
+      // Tugas yang sudah ditolak (false-positive kamera) tidak boleh dimajukan.
+      if (data['ditolakPada'] != null) return;
 
       final sekarang = StatusPermintaan.dariValue(data['status'] as String?);
       final berikutnya = sekarang.berikutnya;
@@ -189,6 +209,36 @@ class PermintaanService {
         update['petugas'] = DummyData.petugas.nama; // 'Rina'
       }
       tx.update(ref, update);
+    });
+  }
+
+  /// Menolak tugas kamera AI (tombol "Bukan penumpang / tolak", O1 + A3).
+  ///
+  /// Menulis `ditolakPada` (serverTimestamp) + `alasanTolak` dan memperbarui
+  /// `diperbaruiPada`; enum `status` dan `riwayat` TIDAK disentuh (kontrak
+  /// bagian 4). Tugas keluar dari daftar aktif lewat `ditolakPada`.
+  ///
+  /// Hanya berlaku untuk tugas `kamera_ai` yang belum selesai dan belum
+  /// ditolak; idempoten terhadap ketukan ganda. memakai antrean per-id yang
+  /// sama dengan [majukanStatus] agar tolak dan majukan tidak berpacu.
+  Future<void> tolakTugas(String id, {String? alasan}) =>
+      _antrePerId(id, () => _tolakDalamTransaksi(id, alasan));
+
+  Future<void> _tolakDalamTransaksi(String id, String? alasan) async {
+    final ref = _col.doc(id);
+    await _db.runTransaction<void>((tx) async {
+      final snap = await tx.get(ref);
+      final data = snap.data();
+      if (data == null) return;
+      if (data['sumber'] != 'kamera_ai') return; // hanya tugas kamera AI
+      if (data['ditolakPada'] != null) return; // sudah ditolak: idempoten
+      final status = StatusPermintaan.dariValue(data['status'] as String?);
+      if (status == StatusPermintaan.selesai) return;
+      tx.update(ref, <String, dynamic>{
+        'ditolakPada': FieldValue.serverTimestamp(),
+        'alasanTolak': alasan,
+        'diperbaruiPada': FieldValue.serverTimestamp(),
+      });
     });
   }
 

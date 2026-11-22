@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:whoosh_ramah/models/foto_permintaan.dart';
 import 'package:whoosh_ramah/models/permintaan.dart';
 import 'package:whoosh_ramah/screens/gagal_init_screen.dart';
 import 'package:whoosh_ramah/screens/keluarga_pantau_screen.dart';
@@ -16,9 +19,10 @@ import 'package:whoosh_ramah/services/permintaan_service.dart';
 import 'package:whoosh_ramah/theme.dart';
 
 class _SatuDokumenService extends PermintaanService {
-  _SatuDokumenService(this._doc);
+  _SatuDokumenService(this._doc, {this.foto});
 
   final Permintaan? _doc;
+  final FotoPermintaan? foto;
 
   @override
   Stream<Permintaan?> streamPermintaan(String id) => Stream<Permintaan?>.value(_doc);
@@ -26,15 +30,24 @@ class _SatuDokumenService extends PermintaanService {
   @override
   Stream<Permintaan?> streamTerbaruPenumpang(String idPenumpang) =>
       Stream<Permintaan?>.value(_doc);
+
+  @override
+  Stream<FotoPermintaan?> streamFoto(String idTugas) =>
+      Stream<FotoPermintaan?>.value(foto);
 }
 
 class _DaftarService extends PermintaanService {
-  _DaftarService(this._list);
+  _DaftarService(this._list, {this.foto});
 
   final List<Permintaan> _list;
+  final FotoPermintaan? foto;
 
   @override
   Stream<List<Permintaan>> streamSemua() => Stream<List<Permintaan>>.value(_list);
+
+  @override
+  Stream<FotoPermintaan?> streamFoto(String idTugas) =>
+      Stream<FotoPermintaan?>.value(foto);
 }
 
 /// Selalu gagal: menguji state error + tombol "Coba lagi" pada teks besar.
@@ -74,6 +87,8 @@ DateTime _jam(int h, int m) => DateTime(2026, 11, 22, h, m);
 Permintaan _dokumen({
   StatusPermintaan status = StatusPermintaan.bertemu,
   DateTime? tibaPada,
+  bool adaFoto = false,
+  bool ditolak = false,
 }) =>
     Permintaan(
       id: 'x',
@@ -100,7 +115,15 @@ Permintaan _dokumen({
       dibuatPada: _jam(7, 30),
       diperbaruiPada: _jam(7, 42),
       tibaPada: tibaPada,
+      adaFoto: adaFoto,
+      ditolakPada: ditolak ? _jam(7, 45) : null,
     );
+
+/// PNG 1x1 yang sah untuk Image.memory (dekode piksel tidak diverifikasi di
+/// sini — yang diuji hanya tata letak pada teks besar).
+final Uint8List _pngKecil = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
 
 /// Render [home] pada ukuran HP dengan textScaler tertentu dan pastikan tidak
 /// ada overflow (RenderFlex dsb) yang dilaporkan framework.
@@ -194,6 +217,37 @@ void main() {
           service: _MemuatService(),
         ),
     'pantau keluarga (memuat)': () => KeluargaPantauScreen(service: _MemuatService()),
+    // O1 + A3: cuplikan verifikasi (tersedia & kedaluwarsa), tugas ditolak,
+    // dan thumbnail di daftar — semuanya harus aman pada teks besar.
+    'detail tugas petugas (cuplikan)': () => PetugasDetailScreen(
+          idPermintaan: 'x',
+          service: _SatuDokumenService(
+            _dokumen(adaFoto: true),
+            foto: FotoPermintaan(
+              id: 'x',
+              bytes: _pngKecil,
+              kedaluwarsaPada: DateTime.now().add(const Duration(minutes: 10)),
+            ),
+          ),
+        ),
+    'detail tugas petugas (cuplikan kedaluwarsa)': () => PetugasDetailScreen(
+          idPermintaan: 'x',
+          service: _SatuDokumenService(_dokumen(adaFoto: true)),
+        ),
+    'detail tugas petugas (ditolak)': () => PetugasDetailScreen(
+          idPermintaan: 'x',
+          service: _SatuDokumenService(_dokumen(ditolak: true)),
+        ),
+    'daftar tugas petugas (cuplikan)': () => PetugasTugasScreen(
+          service: _DaftarService(
+            [_dokumen(adaFoto: true)],
+            foto: FotoPermintaan(
+              id: 'x',
+              bytes: _pngKecil,
+              kedaluwarsaPada: DateTime.now().add(const Duration(minutes: 10)),
+            ),
+          ),
+        ),
   };
 
   for (final scale in const [1.3, 1.5]) {

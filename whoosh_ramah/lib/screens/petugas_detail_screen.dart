@@ -5,6 +5,7 @@ import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
 import '../transisi.dart';
+import '../widgets/foto_cuplikan.dart';
 import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/secondary_pill_button.dart';
@@ -36,6 +37,9 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
   /// true selama `majukanStatus` berjalan (tombol dinonaktifkan + spinner).
   bool _loading = false;
 
+  /// true selama `tolakTugas` berjalan (tombol tolak dinonaktifkan).
+  bool _menolak = false;
+
   /// Berlangganan ulang dokumen setelah gagal memuat (tombol "Coba lagi").
   void _cobaLagi() {
     setState(() {
@@ -55,6 +59,60 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// "Bukan penumpang / tolak" (O1 + A3): konfirmasi dulu lewat dialog, lalu
+  /// tulis `ditolakPada` + `alasanTolak`. Status & riwayat tidak disentuh;
+  /// tugas keluar dari daftar aktif. Setelah berhasil, kembali ke daftar.
+  Future<void> _tolak() async {
+    final yakin = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak tugas ini?'),
+        content: const Text(
+          'Tugas akan ditandai bukan penumpang dan keluar dari daftar aktif. '
+          'Gunakan bila kamera AI salah mendeteksi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Tolak'),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true || !mounted) return;
+    setState(() => _menolak = true);
+    try {
+      await _service.tolakTugas(
+        widget.idPermintaan,
+        alasan: 'Bukan pengguna kursi roda',
+      );
+      if (!mounted) return;
+      setState(() => _menolak = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Tugas ditolak. Terima kasih sudah memeriksa.'),
+          ),
+        );
+      Navigator.maybePop(context);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _menolak = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menolak tugas. Silakan coba lagi.'),
+          ),
+        );
     }
   }
 
@@ -124,6 +182,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                       children: [
                         _hero(p),
                         _kartuInfo(p),
+                        if (p.dariKamera && p.adaFoto) _kartuFoto(p),
                         _kartuStatus(p),
                       ],
                     ),
@@ -329,6 +388,53 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
     );
   }
 
+  /// Kartu cuplikan verifikasi anonim (O1, bagian 12): hanya untuk tugas
+  /// Kamera AI dengan `adaFoto`. Foto dibaca dari koleksi `permintaan_foto`
+  /// lewat [FotoCuplikan]; bila detektor sudah menghapusnya (TTL), widget
+  /// menampilkan "Cuplikan sudah kedaluwarsa".
+  Widget _kartuFoto(Permintaan p) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
+        boxShadow: AppShadows.cardSoft,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'CUPLIKAN KAMERA AI',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: AppColors.redText,
+            ),
+          ),
+          const SizedBox(height: 10),
+          FotoCuplikan(
+            service: _service,
+            idTugas: p.id,
+            lokasi: p.lokasiSingkat,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Cuplikan anonim untuk verifikasi — otomatis terhapus setelah 10 menit.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Kartu stepper 5 status.
   Widget _kartuStatus(Permintaan p) {
     final selesai = p.status == StatusPermintaan.selesai;
@@ -368,7 +474,8 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
     );
   }
 
-  /// Bar bawah tetap: tombol aksi atau tanda "Tugas selesai".
+  /// Bar bawah tetap: tanda "Tugas ditolak" / "Tugas selesai", atau tombol
+  /// aksi (+ tombol tolak untuk tugas Kamera AI yang masih berjalan).
   Widget _barBawah(Permintaan p) {
     final selesai = p.status == StatusPermintaan.selesai;
     return Padding(
@@ -377,7 +484,22 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (selesai)
+          if (p.sudahDitolak)
+            Container(
+              constraints: const BoxConstraints(minHeight: 56),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.redSoft,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'Tugas ditolak · bukan penumpang',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.redText),
+              ),
+            )
+          else if (selesai)
             Container(
               constraints: const BoxConstraints(minHeight: 56),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -392,12 +514,21 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.redText),
               ),
             )
-          else
+          else ...[
             _TombolAksi(
               label: _labelTombol(p),
               loading: _loading,
               onPressed: _loading ? null : _majukan,
             ),
+            if (p.bisaDitolak) ...[
+              const SizedBox(height: 8),
+              SecondaryPillButton(
+                key: const Key('tombol_tolak'),
+                onPressed: _menolak ? null : _tolak,
+                label: _menolak ? 'Memproses…' : 'Bukan penumpang / tolak',
+              ),
+            ],
+          ],
           const SizedBox(height: 8),
           const Text(
             'Setiap perubahan langsung terlihat oleh penumpang dan keluarga',

@@ -10,6 +10,7 @@ import '../services/permintaan_service.dart';
 import '../theme.dart';
 import '../transisi.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/foto_cuplikan.dart';
 import '../widgets/ganti_peran_pill.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/pill_button.dart';
@@ -21,7 +22,8 @@ import 'petugas_detail_screen.dart';
 /// merah; pembeda tugas adalah badge sumber + label status, bukan warna peran).
 ///
 /// Mendengarkan [PermintaanService.streamSemua] lalu memisahkan tugas di sisi
-/// aplikasi: aktif (status != selesai, terbaru di atas) dan selesai hari ini.
+/// aplikasi: aktif (status != selesai DAN belum ditolak, terbaru di atas),
+/// selesai hari ini, dan jumlah ditolak (false-positive kamera, O1 + A3).
 /// Saat dokumen BARU masuk setelah layar terbuka, petugas diberi tahu lewat
 /// haptic, SnackBar, [SemanticsService.sendAnnouncement], dan sorotan kartu.
 class PetugasTugasScreen extends StatefulWidget {
@@ -139,6 +141,7 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
                 baru: 0,
                 berjalan: 0,
                 selesai: 0,
+                ditolak: 0,
                 isi: snapshot.hasError
                     ? _PesanTengah(
                         text: 'Gagal memuat tugas. Periksa koneksi Anda.',
@@ -149,19 +152,29 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
             }
             WidgetsBinding.instance.addPostFrameCallback((_) => _prosesSnapshot(list));
 
-            final aktif = list.where((e) => !e.sudahSelesai).toList();
+            // Tugas yang ditolak petugas ("Bukan penumpang / tolak") keluar
+            // dari daftar aktif dan hanya dihitung di ringkasan "Ditolak".
+            final aktif =
+                list.where((e) => !e.sudahSelesai && !e.sudahDitolak).toList();
             final selesaiHariIni = list
                 .where((e) => e.sudahSelesai && _hariIni(e.diperbaruiPada))
                 .toList();
-            final baru = list.where((e) => e.status == StatusPermintaan.menunggu).length;
-            final berjalan = list
-                .where((e) => e.status != StatusPermintaan.menunggu && !e.sudahSelesai)
+            final baru = list
+                .where((e) => e.status == StatusPermintaan.menunggu && !e.sudahDitolak)
                 .length;
+            final berjalan = list
+                .where((e) =>
+                    e.status != StatusPermintaan.menunggu &&
+                    !e.sudahSelesai &&
+                    !e.sudahDitolak)
+                .length;
+            final ditolak = list.where((e) => e.sudahDitolak).length;
 
             return _bingkai(
               baru: baru,
               berjalan: berjalan,
               selesai: selesaiHariIni.length,
+              ditolak: ditolak,
               isi: _daftarTugas(aktif, selesaiHariIni),
             );
           },
@@ -175,12 +188,13 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
     required int baru,
     required int berjalan,
     required int selesai,
+    required int ditolak,
     required Widget isi,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _hero(baru: baru, berjalan: berjalan, selesai: selesai),
+        _hero(baru: baru, berjalan: berjalan, selesai: selesai, ditolak: ditolak),
         Expanded(child: isi),
         BottomNav(
           activeColor: AppColors.redText,
@@ -195,7 +209,12 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
     );
   }
 
-  Widget _hero({required int baru, required int berjalan, required int selesai}) {
+  Widget _hero({
+    required int baru,
+    required int berjalan,
+    required int selesai,
+    required int ditolak,
+  }) {
     return HeroHeader(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Column(
@@ -249,6 +268,8 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
               Expanded(child: _StatCard(value: berjalan, label: 'Berjalan', color: AppColors.textPrimary)),
               const SizedBox(width: 8),
               Expanded(child: _StatCard(value: selesai, label: 'Selesai hari ini', color: AppColors.textPrimary)),
+              const SizedBox(width: 8),
+              Expanded(child: _StatCard(value: ditolak, label: 'Ditolak', color: AppColors.textPrimary)),
             ],
           ),
         ],
@@ -279,6 +300,7 @@ class _PetugasTugasScreenState extends State<PetugasTugasScreen> {
             for (final p in aktif) ...[
               _TaskCard(
                 permintaan: p,
+                service: _service,
                 disorot: _disorot.contains(p.id),
                 onTap: () => _bukaDetail(p.id),
                 onTerima: () => _terimaTugas(p.id),
@@ -427,7 +449,7 @@ class _BadgeBertugas extends StatelessWidget {
   }
 }
 
-/// Kotak ringkasan angka (Baru / Berjalan / Selesai hari ini).
+/// Kotak ringkasan angka (Baru / Berjalan / Selesai hari ini / Ditolak).
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.value, required this.label, required this.color});
 
@@ -472,6 +494,7 @@ class _TaskCard extends StatelessWidget {
   const _TaskCard({
     required this.permintaan,
     required this.onTap,
+    this.service,
     this.disorot = false,
     this.onTerima,
     this.memuat = false,
@@ -479,6 +502,11 @@ class _TaskCard extends StatelessWidget {
 
   final Permintaan permintaan;
   final VoidCallback onTap;
+
+  /// Untuk mendengarkan cuplikan verifikasi anonim (hanya kartu Kamera AI
+  /// dengan `adaFoto` yang belum selesai). Null -> tanpa thumbnail.
+  final PermintaanService? service;
+
   final bool disorot;
 
   /// Aksi "Terima & datangi"; null bila tugas tidak bisa diterima lagi.
@@ -495,6 +523,8 @@ class _TaskCard extends StatelessWidget {
     final judul = p.dariKamera ? 'Penumpang belum diketahui' : _judulAplikasi(p);
     final subjudul = p.dariKamera ? _subjudulKamera(p) : _subjudulAplikasi(p);
     final bisaDiterima = p.status == StatusPermintaan.menunggu;
+    final tampilFoto =
+        p.dariKamera && p.adaFoto && !p.sudahSelesai && service != null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -510,65 +540,84 @@ class _TaskCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Semantics(
-            button: true,
-            label: '$judul. $subjudul. ${status.label}. $waktu',
-            child: ExcludeSemantics(
-              child: GestureDetector(
-                onTap: onTap,
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        _SumberBadge(dariKamera: p.dariKamera),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            status.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: status.color),
-                          ),
-                        ),
-                        if (waktu.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              waktu,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textSecondary,
+          // Thumbnail cuplikan sengaja menjadi SAUDARA area tekan kartu (bukan
+          // di dalam ExcludeSemantics): label gabungan kartu tetap utuh dan
+          // cuplikan punya node Semantics sendiri untuk pembaca layar.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: '$judul. $subjudul. ${status.label}. $waktu',
+                  child: ExcludeSemantics(
+                    child: GestureDetector(
+                      onTap: onTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              _SumberBadge(dariKamera: p.dariKamera),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  status.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: status.color),
+                                ),
                               ),
+                              if (waktu.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    waktu,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            judul,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subjudul,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              height: 1.45,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      judul,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subjudul,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.45,
-                        color: AppColors.textSecondary,
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              if (tampilFoto) ...[
+                const SizedBox(width: 12),
+                FotoCuplikan(
+                  service: service!,
+                  idTugas: p.id,
+                  lokasi: p.lokasiSingkat,
+                  thumbnail: true,
+                ),
+              ],
+            ],
           ),
           if (!p.sudahSelesai) ...[
             const SizedBox(height: 12),

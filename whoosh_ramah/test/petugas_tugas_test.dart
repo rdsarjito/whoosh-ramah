@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:whoosh_ramah/models/foto_permintaan.dart';
 import 'package:whoosh_ramah/models/permintaan.dart';
 import 'package:whoosh_ramah/screens/petugas_detail_screen.dart';
 import 'package:whoosh_ramah/screens/petugas_tugas_screen.dart';
 import 'package:whoosh_ramah/services/permintaan_service.dart';
 import 'package:whoosh_ramah/theme.dart';
+import 'package:whoosh_ramah/widgets/foto_cuplikan.dart';
 import 'package:whoosh_ramah/widgets/pill_button.dart';
 import 'package:whoosh_ramah/widgets/secondary_pill_button.dart';
 import 'package:whoosh_ramah/widgets/skeleton.dart';
@@ -72,13 +76,42 @@ class _FakeTerimaService extends PermintaanService {
   }
 }
 
-Permintaan _kamera(String id, {StatusPermintaan status = StatusPermintaan.menunggu}) => Permintaan(
+/// Daftar tetap + cuplikan foto per id tugas (thumbnail kartu Kamera AI).
+class _FakeFotoListService extends PermintaanService {
+  _FakeFotoListService(this._list, this._foto);
+
+  final List<Permintaan> _list;
+  final Map<String, FotoPermintaan?> _foto;
+
+  @override
+  Stream<List<Permintaan>> streamSemua() => Stream<List<Permintaan>>.value(_list);
+
+  @override
+  Stream<FotoPermintaan?> streamFoto(String idTugas) =>
+      Stream<FotoPermintaan?>.value(_foto[idTugas]);
+}
+
+/// PNG 1x1 yang sah untuk Image.memory; tes hanya memastikan widget &
+/// Semantics-nya ada (dekode piksel berjalan di waktu async sungguhan).
+final Uint8List _pngKecil = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
+
+Permintaan _kamera(
+  String id, {
+  StatusPermintaan status = StatusPermintaan.menunggu,
+  bool adaFoto = false,
+  bool ditolak = false,
+}) =>
+    Permintaan(
       id: id,
       jenisBantuan: JenisBantuan.kursiRoda,
       titikJemput: 'Stasiun Halim - Pintu Masuk Utara',
       status: status,
       sumber: 'kamera_ai',
       keyakinan: 0.87,
+      adaFoto: adaFoto,
+      ditolakPada: ditolak ? DateTime.now() : null,
       dibuatPada: DateTime.now(),
       diperbaruiPada: DateTime.now(),
     );
@@ -131,14 +164,15 @@ void main() {
     ];
     await buka(tester, _FakeListService(list));
 
-    // Ringkasan: Baru 2, Berjalan 1, Selesai 0. "Baru" juga muncul sebagai
-    // badge status pada kartu kamera yang masih menunggu.
+    // Ringkasan: Baru 2, Berjalan 1, Selesai 0, Ditolak 0. "Baru" juga muncul
+    // sebagai badge status pada kartu kamera yang masih menunggu.
     expect(find.text('Baru'), findsNWidgets(2));
     expect(find.text('Berjalan'), findsOneWidget);
     expect(find.text('Selesai hari ini'), findsOneWidget);
+    expect(find.text('Ditolak'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('0'), findsOneWidget);
+    expect(find.text('0'), findsNWidgets(2));
 
     // Badge sumber selalu bertext.
     expect(find.text('Kamera AI'), findsOneWidget);
@@ -384,5 +418,72 @@ void main() {
     // Kilau berhenti, jadi tidak ada frame yang dijadwalkan terus-menerus.
     await tester.pumpAndSettle();
     expect(find.byType(Skeleton), findsOneWidget);
+  });
+
+  testWidgets('O1: thumbnail cuplikan hanya pada kartu Kamera AI dengan adaFoto', (tester) async {
+    final service = _FakeFotoListService(
+      <Permintaan>[
+        _kamera('cam1', adaFoto: true),
+        _kamera('cam2'), // tanpa foto: tanpa thumbnail
+        _aplikasi('app1'), // tugas aplikasi: tidak pernah punya cuplikan
+      ],
+      <String, FotoPermintaan?>{
+        'cam1': FotoPermintaan(
+          id: 'cam1',
+          bytes: _pngKecil,
+          kedaluwarsaPada: DateTime.now().add(const Duration(minutes: 10)),
+        ),
+      },
+    );
+    await buka(tester, service);
+
+    expect(find.byType(FotoCuplikan), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+
+    final handle = tester.ensureSemantics();
+    // Label cuplikan menyebut lokasi; label gabungan kartu tetap utuh
+    // (thumbnail berada di luar ExcludeSemantics area tekan kartu).
+    expect(
+      find.bySemanticsLabel('Cuplikan kamera AI: pengguna kursi roda di Pintu Masuk Utara'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel(
+        'Penumpang belum diketahui. Pintu Masuk Utara · keyakinan 87%. Baru. baru saja',
+      ),
+      // cam1 & cam2 sama-sama menunggu dengan lokasi/keyakinan identik.
+      findsNWidgets(2),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('O1: dokumen foto hilang -> thumbnail "Cuplikan sudah kedaluwarsa"', (tester) async {
+    final service = _FakeFotoListService(
+      <Permintaan>[_kamera('cam1', adaFoto: true)],
+      <String, FotoPermintaan?>{'cam1': null}, // sudah dihapus detektor (TTL)
+    );
+    await buka(tester, service);
+
+    expect(find.byType(Image), findsNothing);
+    final handle = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Cuplikan sudah kedaluwarsa'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('A3: tugas ditolak keluar dari daftar aktif, dihitung di "Ditolak"', (tester) async {
+    await buka(
+      tester,
+      _FakeListService(<Permintaan>[_kamera('cam1', ditolak: true)]),
+    );
+
+    // Tidak ada kartu aktif; ringkasan Baru/Berjalan/Selesai 0, Ditolak 1.
+    expect(find.text('Penumpang belum diketahui'), findsNothing);
+    expect(
+      find.text('Belum ada tugas aktif. Tugas baru akan muncul di sini secara otomatis.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ditolak'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('0'), findsNWidgets(3));
   });
 }

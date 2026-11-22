@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: wheelchair_detector
-title: Wheelchair Detection & Assistance Request Inference Service
+title: Wheelchair Detection & Assistance Request Emitter
 scope:
     - detector/
 source_files: []

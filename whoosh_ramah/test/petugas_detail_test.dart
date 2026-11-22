@@ -1,26 +1,52 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:whoosh_ramah/models/foto_permintaan.dart';
 import 'package:whoosh_ramah/models/permintaan.dart';
 import 'package:whoosh_ramah/screens/petugas_detail_screen.dart';
 import 'package:whoosh_ramah/services/permintaan_service.dart';
 import 'package:whoosh_ramah/theme.dart';
+import 'package:whoosh_ramah/widgets/secondary_pill_button.dart';
 
-/// Service palsu: satu dokumen tetap + perekam `majukanStatus`.
+/// Service palsu: satu dokumen tetap + cuplikan foto + perekam
+/// `majukanStatus`/`tolakTugas`.
 class _FakeDetailService extends PermintaanService {
-  _FakeDetailService({this.doc, this.gagal = false});
+  _FakeDetailService({
+    this.doc,
+    this.gagal = false,
+    this.foto,
+    this.gagalTolak = false,
+  });
 
   final Permintaan? doc;
   final bool gagal;
+  final FotoPermintaan? foto;
+  final bool gagalTolak;
 
   final List<String> dimajukan = <String>[];
+  final List<String> ditolak = <String>[];
+  String? alasanTerakhir;
 
   @override
   Stream<Permintaan?> streamPermintaan(String id) => Stream<Permintaan?>.value(doc);
 
   @override
+  Stream<FotoPermintaan?> streamFoto(String idTugas) =>
+      Stream<FotoPermintaan?>.value(foto);
+
+  @override
   Future<void> majukanStatus(String id) async {
     dimajukan.add(id);
     if (gagal) throw Exception('jaringan gagal');
+  }
+
+  @override
+  Future<void> tolakTugas(String id, {String? alasan}) async {
+    ditolak.add(id);
+    alasanTerakhir = alasan;
+    if (gagalTolak) throw Exception('jaringan gagal');
   }
 }
 
@@ -66,16 +92,29 @@ Permintaan _aplikasi({
       diperbaruiPada: DateTime.now(),
     );
 
-Permintaan _kamera({StatusPermintaan status = StatusPermintaan.menunggu}) => Permintaan(
+Permintaan _kamera({
+  StatusPermintaan status = StatusPermintaan.menunggu,
+  bool adaFoto = false,
+  bool ditolak = false,
+}) =>
+    Permintaan(
       id: 'cam1',
       jenisBantuan: JenisBantuan.kursiRoda,
       titikJemput: 'Stasiun Halim - Pintu Masuk Utara',
       status: status,
       sumber: 'kamera_ai',
       keyakinan: 0.87,
+      adaFoto: adaFoto,
+      ditolakPada: ditolak ? DateTime.now() : null,
       dibuatPada: DateTime.now(),
       diperbaruiPada: DateTime.now(),
     );
+
+/// PNG 1x1 yang sah untuk Image.memory; tes hanya memastikan widget &
+/// Semantics-nya ada (dekode piksel berjalan di waktu async sungguhan).
+final Uint8List _pngKecil = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
 
 void main() {
   Future<void> buka(WidgetTester tester, PermintaanService service, String id) async {
@@ -87,6 +126,12 @@ void main() {
         home: PetugasDetailScreen(idPermintaan: id, service: service),
       ),
     );
+    await tester.pumpAndSettle();
+  }
+
+  /// Habiskan timer SnackBar (4 dtk) agar tidak ada timer menggantung di akhir tes.
+  Future<void> habiskanSnackBar(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
   }
 
@@ -152,6 +197,9 @@ void main() {
     // Langkah pertama: tombol memakai label status berikutnya.
     expect(find.text('Terima tugas'), findsOneWidget);
     expect(find.byKey(const Key('tombol_aksi')), findsOneWidget);
+
+    // Tanpa adaFoto: tidak ada kartu cuplikan (O1).
+    expect(find.text('CUPLIKAN KAMERA AI'), findsNothing);
   });
 
   testWidgets('Langkah 6: tekan tombol memanggil majukanStatus(id)', (tester) async {
@@ -228,5 +276,127 @@ void main() {
     expect(service.langganan, 2);
     expect(find.text('Tugas tidak ditemukan.'), findsNothing);
     expect(find.text('Siti Aminah'), findsOneWidget);
+  });
+
+  testWidgets('O1: detail kamera dengan adaFoto menampilkan cuplikan + keterangan', (tester) async {
+    await buka(
+      tester,
+      _FakeDetailService(
+        doc: _kamera(adaFoto: true),
+        foto: FotoPermintaan(
+          id: 'cam1',
+          bytes: _pngKecil,
+          kedaluwarsaPada: DateTime.now().add(const Duration(minutes: 10)),
+        ),
+      ),
+      'cam1',
+    );
+
+    expect(find.text('CUPLIKAN KAMERA AI'), findsOneWidget);
+    expect(
+      find.text('Cuplikan anonim untuk verifikasi — otomatis terhapus setelah 10 menit.'),
+      findsOneWidget,
+    );
+    expect(find.byType(Image), findsOneWidget);
+
+    final handle = tester.ensureSemantics();
+    expect(
+      find.bySemanticsLabel('Cuplikan kamera AI: pengguna kursi roda di Pintu Masuk Utara'),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
+  testWidgets('O1: dokumen foto hilang -> "Cuplikan sudah kedaluwarsa"', (tester) async {
+    await buka(
+      tester,
+      _FakeDetailService(doc: _kamera(adaFoto: true)), // foto null: sudah dihapus TTL
+      'cam1',
+    );
+
+    expect(find.text('CUPLIKAN KAMERA AI'), findsOneWidget);
+    expect(find.text('Cuplikan sudah kedaluwarsa'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+  });
+
+  testWidgets('A3: tugas kamera menunggu punya tombol tolak', (tester) async {
+    await buka(tester, _FakeDetailService(doc: _kamera()), 'cam1');
+    expect(find.byKey(const Key('tombol_tolak')), findsOneWidget);
+    expect(find.text('Bukan penumpang / tolak'), findsOneWidget);
+  });
+
+  testWidgets('A3: tugas aplikasi tidak pernah punya tombol tolak', (tester) async {
+    await buka(tester, _FakeDetailService(doc: _aplikasi()), 'app1');
+    expect(find.byKey(const Key('tombol_tolak')), findsNothing);
+  });
+
+  testWidgets('A3: tugas kamera selesai tidak bisa ditolak lagi', (tester) async {
+    await buka(
+      tester,
+      _FakeDetailService(doc: _kamera(status: StatusPermintaan.selesai)),
+      'cam1',
+    );
+    expect(find.byKey(const Key('tombol_tolak')), findsNothing);
+  });
+
+  testWidgets('A3: tugas sudah ditolak menampilkan pil, tanpa tombol aksi/tolak', (tester) async {
+    await buka(
+      tester,
+      _FakeDetailService(doc: _kamera(ditolak: true)),
+      'cam1',
+    );
+    expect(find.text('Tugas ditolak · bukan penumpang'), findsOneWidget);
+    expect(find.byKey(const Key('tombol_aksi')), findsNothing);
+    expect(find.byKey(const Key('tombol_tolak')), findsNothing);
+  });
+
+  testWidgets('A3: dialog konfirmasi — Batal tidak menulis apa-apa', (tester) async {
+    final service = _FakeDetailService(doc: _kamera());
+    await buka(tester, service, 'cam1');
+
+    await tester.tap(find.byKey(const Key('tombol_tolak')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tolak tugas ini?'), findsOneWidget);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(service.ditolak, isEmpty);
+    expect(find.text('Tolak tugas ini?'), findsNothing);
+    expect(find.byKey(const Key('tombol_tolak')), findsOneWidget);
+  });
+
+  testWidgets('A3: dialog Tolak menulis alasan + SnackBar konfirmasi', (tester) async {
+    final service = _FakeDetailService(doc: _kamera());
+    await buka(tester, service, 'cam1');
+
+    await tester.tap(find.byKey(const Key('tombol_tolak')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tolak'));
+    await tester.pumpAndSettle();
+
+    expect(service.ditolak, <String>['cam1']);
+    expect(service.alasanTerakhir, 'Bukan pengguna kursi roda');
+    expect(find.text('Tugas ditolak. Terima kasih sudah memeriksa.'), findsOneWidget);
+    await habiskanSnackBar(tester);
+  });
+
+  testWidgets('A3: tolak gagal -> SnackBar, tombol pulih, tidak ada penolakan tertulis', (tester) async {
+    final service = _FakeDetailService(doc: _kamera(), gagalTolak: true);
+    await buka(tester, service, 'cam1');
+
+    await tester.tap(find.byKey(const Key('tombol_tolak')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tolak'));
+    await tester.pumpAndSettle();
+
+    expect(service.ditolak, <String>['cam1']);
+    expect(find.text('Gagal menolak tugas. Silakan coba lagi.'), findsOneWidget);
+    expect(find.text('Bukan penumpang / tolak'), findsOneWidget);
+    expect(
+      tester.widget<SecondaryPillButton>(find.byKey(const Key('tombol_tolak'))).onPressed,
+      isNotNull,
+    );
+    await habiskanSnackBar(tester);
   });
 }
