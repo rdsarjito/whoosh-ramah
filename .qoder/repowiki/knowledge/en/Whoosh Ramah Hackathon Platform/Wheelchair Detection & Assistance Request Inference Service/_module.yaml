@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: wheelchair_detector
-title: Wheelchair Detection & Firebase Task Ingestion
+title: Wheelchair Detection & Assistance Request Inference Service
 scope:
     - detector/
 source_files: []

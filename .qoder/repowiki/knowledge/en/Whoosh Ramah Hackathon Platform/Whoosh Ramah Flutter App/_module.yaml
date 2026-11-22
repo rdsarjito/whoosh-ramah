@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: whoosh_ramah_app
-title: Whoosh Ramah Flutter Passenger-Assistance App
+title: Whoosh Ramah Flutter App
 scope:
     - whoosh_ramah/
 source_files: []

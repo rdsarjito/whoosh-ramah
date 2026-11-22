@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: whoosh_ramah_app/shared_layers
-title: Shared Domain Models, Firestore Service & Reusable Widgets
+title: Shared Domain, Persistence & UI Layer
 scope:
     - whoosh_ramah/lib/models/
     - whoosh_ramah/lib/services/
@@ -10,3 +10,4 @@ source_files: []
 depends_on: []
 related_to:
     - path: wheelchair_detector
+    - path: whoosh_ramah_app/penumpang_flows

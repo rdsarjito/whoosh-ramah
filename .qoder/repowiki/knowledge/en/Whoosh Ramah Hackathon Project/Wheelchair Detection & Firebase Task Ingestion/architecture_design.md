@@ -1,7 +1,0 @@
-Single-script module with two entry points: `detect_wheelchair.py` is the runtime inference loop, and `train_yolo.py` is a Colab-only fine-tuning helper.
-
-- Model abstraction: three classes (`ModelRoboflow`, `ModelLokal`, `ModelYoloWorld`) all expose a uniform `deteksi(frame)` returning `(class_name, confidence, x1, y1, x2, y2)` tuples; `buat_model()` selects one based on the `MODE_MODEL` env var. This lets the main loop stay model-agnostic.
-- Data pipeline: OpenCV reads frames from a webcam or video file; detections are throttled by `DETEKSI_TIAP_DETIK`; a running counter (`FRAME_BERTURUT`) requires N consecutive target-class detections before emitting a task, and `JEDA_ANTAR_TUGAS_DETIK` prevents duplicate tasks within a cooldown window.
-- Persistence: `PengirimFirebase` initializes `firebase_admin` once and writes documents into the `permintaan_pendampingan` collection with fields `jenisBantuan`, `titikJemput`, `status`, `sumber`, `idKamera`, `keyakinan`, `namaPenumpang`, `dibuatPada` (server timestamp).
-- Configuration: every tuning knob lives in `.env` via `python-dotenv` (confidence threshold, frame persistence, debounce, detection cadence, camera location/id, model path, Roboflow credentials, Firestore key path/collection name).
-- Dependency direction: the main loop depends on the model abstraction and the Firebase sender; training code is independent and targets Google Colab with GPU.

@@ -82,6 +82,9 @@ Kamera ──► detect_wheelchair.py ──► Firestore "permintaan_pendamping
 | `FRAME_BERTURUT` | 3 | Harus terlihat 3 kali berturut sebelum tugas dibuat |
 | `JEDA_ANTAR_TUGAS_DETIK` | 60 | Mencegah satu orang menghasilkan banyak tugas |
 | `DETEKSI_TIAP_DETIK` | 1.0 | Seberapa sering AI dipanggil (hemat kuota Roboflow) |
+| `FOTO_AKTIF` | true | Kirim cuplikan verifikasi anonim ke petugas (mode yoloworld/lokal) |
+| `FOTO_TTL_DETIK` | 600 | Cuplikan dihapus otomatis setelah 600 detik (10 menit) |
+| `FOTO_MAKS_PIKSEL` | 160 | Sisi terpanjang cuplikan; wajah di-blur + dipikselkan |
 
 ## Tips demo
 

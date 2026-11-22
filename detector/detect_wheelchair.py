@@ -16,6 +16,11 @@ Mode yoloworld & lokal memakai ByteTrack (model.track persist=True) sehingga
  jeda. ID yang hilang > 30 detik dianggap orang baru bila muncul kembali.
  Mode roboflow tetap memakai cara lama (streak + jeda global, tanpa tracking).
 
+Mode yoloworld & lokal juga mengirim cuplikan verifikasi anonim (O1): crop
+kotak deteksi dipikselkan + wajah di-blur (Haar), disimpan base64 di koleksi
+permintaan_foto/{idTugas} maksimal FOTO_TTL_DETIK (default 600 detik), lalu
+dihapus thread latar. Gagal menulis foto -> tugas tetap dibuat tanpa foto.
+
 Contoh menjalankan:
   python detect_wheelchair.py                      # webcam, mode dari .env
   python detect_wheelchair.py --sumber video.mp4   # dari file video
@@ -25,8 +30,12 @@ Semua pengaturan ada di file .env (lihat .env.example).
 """
 
 import argparse
+import base64
 import os
+import queue
+import threading
 import time
+from datetime import datetime, timedelta, timezone
 
 import cv2
 from dotenv import load_dotenv
@@ -73,6 +82,13 @@ ID_KAMERA = os.getenv("ID_KAMERA", "halim-utara-01")
 
 FIREBASE_KEY = os.getenv("FIREBASE_KEY", "firebase-key.json")
 KOLEKSI_FIRESTORE = os.getenv("KOLEKSI_FIRESTORE", "permintaan_pendampingan")
+
+# --- Foto verifikasi petugas (O1) ---
+# Cuplikan anonim (dipikselkan + wajah di-blur Haar, JPEG q60) disimpan base64
+# di koleksi permintaan_foto/{idTugas}, dihapus otomatis setelah TTL.
+FOTO_AKTIF = os.getenv("FOTO_AKTIF", "true").strip().lower() in ("1", "true", "ya", "yes")
+FOTO_TTL_DETIK = int(os.getenv("FOTO_TTL_DETIK", "600"))  # 600 = 10 menit
+FOTO_MAKS_PIKSEL = int(os.getenv("FOTO_MAKS_PIKSEL", "160"))  # sisi terpanjang
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +191,172 @@ def buat_model():
 
 
 # ---------------------------------------------------------------------------
+# Foto verifikasi petugas (O1): cuplikan anonim, base64 di Firestore
+# ---------------------------------------------------------------------------
+# Kontrak PROJECT.md bagian 4/12: maks FOTO_MAKS_PIKSEL px, dipikselkan, wajah
+# di-blur (Haar cascade), JPEG q60, disimpan maksimal FOTO_TTL_DETIK lalu
+# dihapus otomatis. Tidak ada file foto ditulis ke disk — semua di RAM.
+
+KOLEKSI_FOTO = "permintaan_foto"  # id dokumen = id dokumen tugas
+FOTO_KUALITAS_JPEG = 60
+PIKSEL_BLOK = 8  # perkecil 8x lalu perbesar nearest = efek pikselasi
+
+_CASCADE_WAJAH = None  # None = belum dimuat; False = tidak tersedia
+
+
+def deteksi_wajah(gray):
+    """Deteksi wajah pada crop grayscale; list (x, y, w, h), [] bila gagal.
+
+    Cascade Haar bawaan opencv-python (cv2.data), dimuat sekali. Bila tidak
+    tersedia, kembalikan [] — pikselasi tetap menyamarkan seluruh cuplikan.
+    """
+    global _CASCADE_WAJAH
+    if _CASCADE_WAJAH is None:
+        try:
+            path = os.path.join(
+                cv2.data.haarcascades, "haarcascade_frontalface_default.xml"
+            )
+            c = cv2.CascadeClassifier(path)
+            _CASCADE_WAJAH = c if not c.empty() else False
+        except Exception:
+            _CASCADE_WAJAH = False
+    if _CASCADE_WAJAH is False:
+        return []
+    return _CASCADE_WAJAH.detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=4, minSize=(20, 20)
+    )
+
+
+def anonimkan_crop(crop, maks_piks=FOTO_MAKS_PIKSEL):
+    """Cuplikan BGR -> bytes JPEG anonim, atau None bila gagal.
+
+    Urutan: blur wajah (Haar) -> perkecil sisi terpanjang <= maks_piks ->
+    pikselkan -> encode JPEG q60. Kegagalan apa pun tidak boleh melempar:
+    tugas tetap dibuat tanpa foto.
+    """
+    try:
+        if crop is None or crop.size == 0:
+            return None
+        hasil = crop.copy()
+        gray = cv2.cvtColor(hasil, cv2.COLOR_BGR2GRAY)
+        for (x, y, w, h) in deteksi_wajah(gray):
+            # Perlebar 20% agar rambut/dagu ikut tersamar, clamp ke crop.
+            mx, my = int(w * 0.2), int(h * 0.2)
+            x1, y1 = max(0, x - mx), max(0, y - my)
+            x2 = min(hasil.shape[1], x + w + mx)
+            y2 = min(hasil.shape[0], y + h + my)
+            if x2 <= x1 or y2 <= y1:
+                continue
+            area = hasil[y1:y2, x1:x2]
+            k = (max(3, (x2 - x1) | 1), max(3, (y2 - y1) | 1))
+            hasil[y1:y2, x1:x2] = cv2.GaussianBlur(area, k, 0)
+        tinggi, lebar = hasil.shape[:2]
+        skala = maks_piks / max(tinggi, lebar)
+        if skala < 1:
+            hasil = cv2.resize(
+                hasil,
+                (max(1, int(lebar * skala)), max(1, int(tinggi * skala))),
+                interpolation=cv2.INTER_AREA,
+            )
+        kecil = cv2.resize(
+            hasil,
+            (
+                max(1, hasil.shape[1] // PIKSEL_BLOK),
+                max(1, hasil.shape[0] // PIKSEL_BLOK),
+            ),
+            interpolation=cv2.INTER_AREA,
+        )
+        hasil = cv2.resize(
+            kecil, (hasil.shape[1], hasil.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        ok, buf = cv2.imencode(
+            ".jpg", hasil, [int(cv2.IMWRITE_JPEG_QUALITY), FOTO_KUALITAS_JPEG]
+        )
+        return buf.tobytes() if ok else None
+    except Exception as e:
+        print(f"[peringatan] Anonimisasi cuplikan gagal: {e}")
+        return None
+
+
+def crop_dari_kotak(frame, kotak, margin=0.1):
+    """Cuplikan BGR dari kotak deteksi (7-tuple) + margin, clamp ke frame.
+
+    Dipanggil pada frame MENTAH sebelum kotak/label digambar, agar cuplikan
+    tidak ikut memuat coretan overlay. None bila kotak di luar frame.
+    """
+    _, _, x1, y1, x2, y2, _ = kotak
+    tinggi, lebar = frame.shape[:2]
+    mx, my = int((x2 - x1) * margin), int((y2 - y1) * margin)
+    x1, y1 = max(0, x1 - mx), max(0, y1 - my)
+    x2, y2 = min(lebar, x2 + mx), min(tinggi, y2 + my)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return frame[y1:y2, x1:x2].copy()
+
+
+class PenghapusFoto:
+    """Thread latar penghapus dokumen permintaan_foto setelah TTL.
+
+    Antrean prioritas (waktu_hapus, id_dokumen); satu thread daemon memproses.
+    Gagal hapus (offline) dicoba lagi tiap 30 detik. Saat startup,
+    sapu_kedaluwarsa() membuang foto sisa proses sebelumnya yang sudah lewat
+    kedaluwarsaPada — backstop bila laptop mati sebelum thread sempat hapus.
+    """
+
+    def __init__(self, db, koleksi=KOLEKSI_FOTO, jeda_retry=30.0):
+        self.db = db
+        self.koleksi = koleksi
+        self.jeda_retry = jeda_retry  # jarak coba ulang saat hapus gagal
+        self.antrean = queue.PriorityQueue()
+        self.thread = threading.Thread(
+            target=self._jalan, daemon=True, name="penghapus-foto"
+        )
+        self.thread.start()
+
+    def jadwalkan(self, id_dokumen, waktu_hapus):
+        self.antrean.put((waktu_hapus, id_dokumen))
+
+    def _jalan(self):
+        while True:
+            waktu_hapus, id_dokumen = self.antrean.get()
+            while True:
+                jeda = waktu_hapus - time.time()
+                if jeda <= 0:
+                    break
+                time.sleep(min(jeda, 1.0))
+            try:
+                self.db.collection(self.koleksi).document(id_dokumen).delete()
+                print(f"[foto] Cuplikan {id_dokumen} dihapus (TTL habis).")
+            except Exception as e:
+                print(
+                    f"[peringatan] Gagal menghapus cuplikan {id_dokumen}: {e}; "
+                    f"coba lagi {self.jeda_retry:.0f} detik."
+                )
+                self.antrean.put((time.time() + self.jeda_retry, id_dokumen))
+
+    def sapu_kedaluwarsa(self):
+        """Hapus foto yang kedaluwarsaPada-nya sudah lewat (sisa proses lama).
+
+        Hanya where satu field sehingga tidak butuh composite index.
+        Kegagalan sapuan tidak boleh menghentikan startup detektor.
+        """
+        try:
+            sekarang = datetime.now(timezone.utc)
+            docs = self.db.collection(self.koleksi).where(
+                "kedaluwarsaPada", "<", sekarang
+            ).stream()
+            n = 0
+            for d in docs:
+                d.reference.delete()
+                n += 1
+            if n:
+                print(f"[foto] {n} cuplikan kedaluwarsa sisa proses lama dibersihkan.")
+        except Exception as e:
+            print(f"[peringatan] Sapuan cuplikan kedaluwarsa gagal: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Firebase
 # ---------------------------------------------------------------------------
 class PengirimFirebase:
@@ -191,12 +373,18 @@ class PengirimFirebase:
         firebase_admin.initialize_app(credentials.Certificate(FIREBASE_KEY))
         self.db = firestore.client()
         self.SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
+        # Foto verifikasi (O1): thread penghapus TTL + sapuan sisa proses lama.
+        self.penghapus = PenghapusFoto(self.db) if FOTO_AKTIF else None
+        if self.penghapus:
+            self.penghapus.sapu_kedaluwarsa()
 
-    def kirim_tugas(self, keyakinan, jumlah_terdeteksi=1, id_lacak=None):
+    def kirim_tugas(self, keyakinan, jumlah_terdeteksi=1, id_lacak=None, cuplikan=None):
         """Membuat permintaan pendampingan baru yang langsung muncul di HP petugas.
 
         [jumlah_terdeteksi] = banyaknya kursi roda di layar saat tugas dibuat;
-        [id_lacak] = track ID ByteTrack (None untuk mode roboflow tanpa tracking).
+        [id_lacak] = track ID ByteTrack (None untuk mode roboflow tanpa tracking);
+        [cuplikan] = crop BGR mentah orang ini untuk foto verifikasi anonim
+        (None = tanpa foto; mode roboflow selalu None).
         Mencoba ulang beberapa kali bila jaringan/Firestore sedang bermasalah.
         Mengembalikan True bila terkirim, False bila semua percobaan gagal —
         kegagalan TIDAK menghentikan loop deteksi.
@@ -218,6 +406,7 @@ class PengirimFirebase:
             try:
                 ref = self.db.collection(KOLEKSI_FIRESTORE).add(data)[1]
                 print(f"[firebase] Tugas dibuat: {ref.id} ({LOKASI_KAMERA})")
+                self._kirim_foto(ref, cuplikan)
                 return True
             except Exception as e:  # koneksi putus, kuota, dsb.
                 galat_terakhir = e
@@ -232,6 +421,34 @@ class PengirimFirebase:
             f"{galat_terakhir}. Deteksi tetap berjalan."
         )
         return False
+
+    def _kirim_foto(self, ref, cuplikan):
+        """Menulis cuplikan anonim ke permintaan_foto/{idTugas}, lalu menandai
+        tugas dengan adaFoto: true. Gagal di langkah mana pun: tugas TETAP
+        dibuat tanpa foto (PROJECT.md bagian 4). Foto yang sudah tertulis
+        selalu dijadwalkan hapus, walau penandaan adaFoto kemudian gagal.
+        """
+        if not FOTO_AKTIF or cuplikan is None or self.penghapus is None:
+            return
+        try:
+            jpeg = anonimkan_crop(cuplikan)
+            if jpeg is None:
+                print("[peringatan] Cuplikan gagal dianonimkan; tugas tanpa foto.")
+                return
+            sekarang = datetime.now(timezone.utc)
+            self.db.collection(KOLEKSI_FOTO).document(ref.id).set({
+                "gambar": base64.b64encode(jpeg).decode("ascii"),
+                "dibuatPada": self.SERVER_TIMESTAMP,
+                "kedaluwarsaPada": sekarang + timedelta(seconds=FOTO_TTL_DETIK),
+            })
+            self.penghapus.jadwalkan(ref.id, time.time() + FOTO_TTL_DETIK)
+            ref.update({"adaFoto": True})
+            print(
+                f"[firebase] Cuplikan anonim {ref.id} ditulis "
+                f"(TTL {FOTO_TTL_DETIK} detik)"
+            )
+        except Exception as e:
+            print(f"[peringatan] Gagal menulis cuplikan ({e}); tugas tetap tanpa foto.")
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +639,15 @@ def main():
                         f"[deteksi] Kursi roda #{id_lacak} terdeteksi "
                         f"({keyakinan:.0%}), terdeteksi {len(terlihat)} kursi roda"
                     )
+                    # Cuplikan verifikasi (O1): crop kotak orang ini dari frame
+                    # MENTAH (sebelum overlay digambar), hanya untuk kirim nyata.
+                    cuplikan = None
+                    if firebase and FOTO_AKTIF:
+                        kotak_id = next(
+                            (k for k in terlihat if k[6] == id_lacak), None
+                        )
+                        if kotak_id is not None:
+                            cuplikan = crop_dari_kotak(frame, kotak_id)
                     berhasil = firebase is None  # --tanpa-firebase: anggap terkirim
                     if firebase:
                         # Kegagalan kirim tidak boleh mematikan loop deteksi.
@@ -430,6 +656,7 @@ def main():
                                 keyakinan,
                                 jumlah_terdeteksi=len(terlihat),
                                 id_lacak=id_lacak,
+                                cuplikan=cuplikan,
                             )
                         except Exception as e:
                             print(f"[galat] Pengiriman tugas gagal: {e}")

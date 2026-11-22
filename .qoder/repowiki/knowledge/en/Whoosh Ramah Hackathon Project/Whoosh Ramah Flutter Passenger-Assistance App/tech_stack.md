@@ -1,1 +1,0 @@
-Flutter/Dart application targeting Android; uses Firebase (Auth/Firestore) initialized via `firebase_options.dart`; Android build uses Gradle Kotlin DSL.

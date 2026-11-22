@@ -1,0 +1,1 @@
+Flutter/Dart targeting Android; Firebase (Auth/Firestore) initialized through `firebase_options.dart`; Android build uses Gradle Kotlin DSL; assets include PlusJakartaSans fonts and SVG/PNG branding.

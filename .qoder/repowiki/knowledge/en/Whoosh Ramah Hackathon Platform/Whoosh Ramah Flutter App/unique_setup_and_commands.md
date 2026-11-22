@@ -1,0 +1,1 @@
+Run with `flutter run`; deploy to Android with `flutter build apk` or `flutter build appbundle`. Firebase configuration is split between `firebase.json` and `android/app/google-services.json`.

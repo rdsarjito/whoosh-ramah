@@ -1,0 +1,1 @@
+Real-time wheelchair detection from webcam/video streams that posts assistance requests with optional anonymized verification photos to a Firestore collection for the Flutter attendant app.

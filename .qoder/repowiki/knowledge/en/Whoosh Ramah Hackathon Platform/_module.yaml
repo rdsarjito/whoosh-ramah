@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Whoosh Ramah Hackathon Project
+title: Whoosh Ramah Hackathon Platform
 scope:
     - PROJECT.md
     - .gitignore

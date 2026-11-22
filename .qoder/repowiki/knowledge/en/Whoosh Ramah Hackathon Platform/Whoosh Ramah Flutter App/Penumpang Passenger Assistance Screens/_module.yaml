@@ -7,4 +7,5 @@ scope:
     - whoosh_ramah/lib/screens/penumpang_tiket_screen.dart
 source_files: []
 depends_on: []
-related_to: []
+related_to:
+    - path: whoosh_ramah_app/shared_layers

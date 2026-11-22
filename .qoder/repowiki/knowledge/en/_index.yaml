@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-11-22T03:08:52Z"
+exported_at: "2026-11-22T12:45:12Z"
 modules:
     "":
-        dir_name: Whoosh Ramah Hackathon Project
-        title: Whoosh Ramah Hackathon Project
+        dir_name: Whoosh Ramah Hackathon Platform
+        title: Whoosh Ramah Hackathon Platform
         scope:
             - PROJECT.md
             - .gitignore
@@ -30,8 +30,8 @@ modules:
         related_to:
             - path: whoosh_ramah_app/app_shell
     wheelchair_detector:
-        dir_name: Wheelchair Detection & Firebase Task Ingestion
-        title: Wheelchair Detection & Firebase Task Ingestion
+        dir_name: Wheelchair Detection & Assistance Request Inference Service
+        title: Wheelchair Detection & Assistance Request Inference Service
         scope:
             - detector/
         source_files: []
@@ -40,8 +40,8 @@ modules:
         related_to:
             - path: whoosh_ramah_app/shared_layers
     whoosh_ramah_app:
-        dir_name: Whoosh Ramah Flutter Passenger-Assistance App
-        title: Whoosh Ramah Flutter Passenger-Assistance App
+        dir_name: Whoosh Ramah Flutter App
+        title: Whoosh Ramah Flutter App
         scope:
             - whoosh_ramah/
         source_files: []
@@ -73,10 +73,11 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: whoosh_ramah_app/shared_layers
     whoosh_ramah_app/shared_layers:
-        dir_name: Shared Domain Models, Firestore Service & Reusable Widgets
-        title: Shared Domain Models, Firestore Service & Reusable Widgets
+        dir_name: Shared Domain, Persistence & UI Layer
+        title: Shared Domain, Persistence & UI Layer
         scope:
             - whoosh_ramah/lib/models/
             - whoosh_ramah/lib/services/
@@ -87,3 +88,4 @@ modules:
         depends_on: []
         related_to:
             - path: wheelchair_detector
+            - path: whoosh_ramah_app/penumpang_flows

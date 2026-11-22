@@ -1,1 +1,0 @@
-Flutter app that boots Firebase, renders a shared design system, and composes passenger-assistance screens over shared domain models and Firestore persistence.

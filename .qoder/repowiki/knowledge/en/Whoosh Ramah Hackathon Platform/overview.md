@@ -1,0 +1,1 @@
+Hackathon platform wiring a Python wheelchair detector and Flutter passenger-assistance app to a shared Cloud Firestore schema, with static HTML mockups as the design source of truth.

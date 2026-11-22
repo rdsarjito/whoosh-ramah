@@ -1,1 +1,0 @@
-Python script that runs a wheelchair detector on a webcam/video stream and posts an assistance request to a Firestore collection for the Flutter attendant app.

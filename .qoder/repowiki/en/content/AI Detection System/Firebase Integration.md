@@ -1,3 +1,5 @@
+Based on my analysis of the codebase, I can see that the Firebase integration has been significantly enhanced with new features. Let me now create the updated documentation that reflects these changes:
+
 # Firebase Integration
 
 <cite>
@@ -7,6 +9,14 @@
 - [permintaan_service.dart](file://whoosh_ramah/lib/services/permintaan_service.dart)
 - [PROJECT.md](file://PROJECT.md)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced `PengirimFirebase` class with retry logic and exponential backoff
+- Added new data fields `jumlahTerdeteksi` and `idLacak` to Firestore documents
+- Improved error handling for robust operation
+- Updated data schema documentation to reflect new fields
+- Enhanced troubleshooting section with retry mechanism details
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -22,18 +32,18 @@
 ## Introduction
 This document explains how the AI detection system integrates with Firebase Firestore to automatically create assistance tasks when wheelchair users are detected by the camera detector. It covers:
 
-- The Python `PengirimFirebase` class that writes new assistance requests into Firestore.
-- The Firestore data schema for assistance requests, including fields such as `jenisBantuan`, `titikJemput`, status progression, and metadata.
+- The Python `PengirimFirebase` class that writes new assistance requests into Firestore with enhanced retry logic and exponential backoff.
+- The Firestore data schema for assistance requests, including fields such as `jenisBantuan`, `titikJemput`, status progression, metadata, and new fields like `jumlahTerdeteksi` and `idLacak`.
 - Firebase authentication using a service account key file.
 - Security rules configuration for demo use.
 - Example Firestore document structure created by the detector.
 - How the Flutter mobile application consumes these documents through real-time streams.
-- Error handling, retry considerations, and monitoring of detection-to-task conversion rates.
+- Error handling, retry mechanisms with exponential backoff, and monitoring of detection-to-task conversion rates.
 
 ## Project Structure
 The integration spans two main parts:
 
-- **Detector (Python):** Runs on a laptop or edge device, reads video from a webcam or CCTV, detects wheelchair users, and writes assistance requests to Firestore.
+- **Detector (Python):** Runs on a laptop or edge device, reads video from a webcam or CCTV, detects wheelchair users, and writes assistance requests to Firestore with enhanced reliability.
 - **Mobile App (Flutter):** Reads and updates assistance requests in real time for passengers, staff, and family members.
 
 ```mermaid
@@ -56,7 +66,7 @@ FAMILY --> FIRESTORE
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
 - [PROJECT.md:24-36](file://PROJECT.md#L24-L36)
 
 **Section sources**
@@ -66,7 +76,7 @@ FAMILY --> FIRESTORE
 The Firebase integration relies on three core components:
 
 1. **`PengirimFirebase` (Python)**  
-   Initializes Firebase Admin SDK with a service account key and creates new assistance request documents in Firestore when wheelchairs are detected.
+   Initializes Firebase Admin SDK with a service account key and creates new assistance request documents in Firestore when wheelchairs are detected, featuring enhanced retry logic with exponential backoff.
 
 2. **`Permintaan` model (Flutter)**  
    Defines the Firestore document schema, including enums for `jenisBantuan` and `status`, helper methods for null-safe parsing, and serialization to/from Firestore maps.
@@ -75,16 +85,16 @@ The Firebase integration relies on three core components:
    Encapsulates all Firestore operations: creating requests, streaming single documents, streaming lists, filtering by passenger, and advancing status with history tracking.
 
 **Section sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
-- [permintaan.dart:1-214](file://whoosh_ramah/lib/models/permintaan.dart#L1-L214)
-- [permintaan_service.dart:1-136](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L136)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
+- [permintaan.dart:1-255](file://whoosh_ramah/lib/models/permintaan.dart#L1-L255)
+- [permintaan_service.dart:1-228](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L228)
 
 ## Architecture Overview
 The end-to-end flow is:
 
 1. The detector runs continuously, sampling frames at a controlled rate.
 2. When a wheelchair is detected with sufficient confidence for consecutive frames, it calls `PengirimFirebase.kirim_tugas`.
-3. `PengirimFirebase` initializes Firebase Admin SDK using a service account JSON file and writes a new document to the `permintaan_pendampingan` collection.
+3. `PengirimFirebase` initializes Firebase Admin SDK using a service account JSON file and writes a new document to the `permintaan_pendampingan` collection with enhanced retry logic.
 4. Flutter apps subscribe to Firestore streams and update UIs in real time.
 
 ```mermaid
@@ -99,16 +109,16 @@ participant FamilyApp as "Family App"
 Camera->>Detector : Frame stream
 Detector->>Detector : Detect wheelchair + confidence
 Detector->>Firebase : Initialize app with service account
-Detector->>Firestore : Add assistance request document
+Detector->>Firestore : Add assistance request document (with retry)
 Firestore-->>PassengerApp : Real-time stream update
 Firestore-->>StaffApp : Real-time stream update
 Firestore-->>FamilyApp : Real-time stream update
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:214-290](file://detector/detect_wheelchair.py#L214-L290)
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
-- [permintaan_service.dart:63-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L63-L78)
+- [detect_wheelchair.py:573-708](file://detector/detect_wheelchair.py#L573-L708)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
+- [permintaan_service.dart:97-124](file://whoosh_ramah/lib/services/permintaan_service.dart#L97-L124)
 
 ## Detailed Component Analysis
 
@@ -118,7 +128,7 @@ Firestore-->>FamilyApp : Real-time stream update
 - Validating the presence of the Firebase service account key file.
 - Initializing the Firebase Admin SDK with the certificate.
 - Creating Firestore client references.
-- Writing new assistance request documents with required fields.
+- Writing new assistance request documents with required fields and enhanced retry logic.
 
 Key behaviors:
 
@@ -131,8 +141,11 @@ Key behaviors:
   - `sumber`: marks the task as created by AI camera.
   - `idKamera`: camera identifier.
   - `keyakinan`: rounded confidence score.
+  - `jumlahTerdeteksi`: count of wheelchairs detected in the frame.
+  - `idLacak`: track ID from ByteTrack for person tracking.
   - `namaPenumpang`: null because the passenger did not book through the app.
   - `dibuatPada`: server timestamp.
+- **Enhanced Retry Logic**: Implements exponential backoff with configurable retry attempts.
 
 ```mermaid
 classDiagram
@@ -140,15 +153,18 @@ class PengirimFirebase {
 -db
 -SERVER_TIMESTAMP
 +__init__()
-+kirim_tugas(keyakinan)
++kirim_tugas(keyakinan, jumlah_terdeteksi=1, id_lacak=None, cuplikan=None)
+-_kirim_foto(ref, cuplikan)
 }
 ```
 
+**Updated** Enhanced with retry logic and exponential backoff for robust operation
+
 **Diagram sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
 
 **Section sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
 
 ### Firestore Data Schema
 The assistance request document lives in the `permintaan_pendampingan` collection. The schema is defined in the Flutter model and documented in the project specification.
@@ -173,9 +189,13 @@ Important fields:
 | `petugas` | String or null | Assigned staff member | Staff workflow |
 | `idKamera` | String or null | Camera ID | Detector |
 | `keyakinan` | Number or null | Detection confidence | Detector |
+| `jumlahTerdeteksi` | Integer | Count of wheelchairs detected in frame | Detector |
+| `idLacak` | Integer or null | Track ID from ByteTrack | Detector |
 | `riwayat` | Array of maps | Status change history | All actors |
 | `dibuatPada` | Timestamp | Creation time | Automatic |
 | `diperbaruiPada` | Timestamp | Last update time | Automatic |
+
+**Updated** Added new fields `jumlahTerdeteksi` and `idLacak` for enhanced tracking capabilities
 
 Enums:
 
@@ -201,18 +221,22 @@ string catatan
 string petugas
 string idKamera
 float keyakinan
+int jumlahTerdeteksi
+int idLacak
 array riwayat
 timestamp dibuatPada
 timestamp diperbaruiPada
 }
 ```
 
+**Updated** Added new fields `jumlahTerdeteksi` and `idLacak` to the entity relationship diagram
+
 **Diagram sources**
-- [permintaan.dart:77-214](file://whoosh_ramah/lib/models/permintaan.dart#L77-L214)
+- [permintaan.dart:77-255](file://whoosh_ramah/lib/models/permintaan.dart#L77-L255)
 - [PROJECT.md:54-95](file://PROJECT.md#L54-L95)
 
 **Section sources**
-- [permintaan.dart:77-214](file://whoosh_ramah/lib/models/permintaan.dart#L77-L214)
+- [permintaan.dart:77-255](file://whoosh_ramah/lib/models/permintaan.dart#L77-L255)
 - [PROJECT.md:54-95](file://PROJECT.md#L54-L95)
 
 ### Status Progression and History
@@ -243,11 +267,11 @@ selesai --> [*]
 
 **Diagram sources**
 - [permintaan.dart:27-57](file://whoosh_ramah/lib/models/permintaan.dart#L27-L57)
-- [permintaan_service.dart:92-119](file://whoosh_ramah/lib/services/permintaan_service.dart#L92-L119)
+- [permintaan_service.dart:144-193](file://whoosh_ramah/lib/services/permintaan_service.dart#L144-L193)
 
 **Section sources**
 - [permintaan.dart:27-57](file://whoosh_ramah/lib/models/permintaan.dart#L27-L57)
-- [permintaan_service.dart:92-119](file://whoosh_ramah/lib/services/permintaan_service.dart#L92-L119)
+- [permintaan_service.dart:144-193](file://whoosh_ramah/lib/services/permintaan_service.dart#L144-L193)
 
 ### Mobile Application Real-Time Integration
 The Flutter side uses `PermintaanService` to interact with Firestore:
@@ -272,11 +296,11 @@ UpdateHistory --> FirestoreUpdate["Update Firestore"]
 ```
 
 **Diagram sources**
-- [permintaan_service.dart:23-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L23-L78)
-- [permintaan_service.dart:92-119](file://whoosh_ramah/lib/services/permintaan_service.dart#L92-L119)
+- [permintaan_service.dart:44-81](file://whoosh_ramah/lib/services/permintaan_service.dart#L44-L81)
+- [permintaan_service.dart:144-193](file://whoosh_ramah/lib/services/permintaan_service.dart#L144-L193)
 
 **Section sources**
-- [permintaan_service.dart:23-119](file://whoosh_ramah/lib/services/permintaan_service.dart#L23-L119)
+- [permintaan_service.dart:44-193](file://whoosh_ramah/lib/services/permintaan_service.dart#L44-L193)
 
 ### Example Firestore Document Created by the Detector
 When the detector identifies a wheelchair user, it creates a document similar to the following structure:
@@ -287,13 +311,17 @@ When the detector identifies a wheelchair user, it creates a document similar to
 - `sumber`: `"kamera_ai"`
 - `idKamera`: camera identifier
 - `keyakinan`: rounded confidence value
+- `jumlahTerdeteksi`: count of wheelchairs detected in the frame
+- `idLacak`: track ID from ByteTrack (for person tracking)
 - `namaPenumpang`: `null`
 - `dibuatPada`: server timestamp
 
-This document appears immediately in the staff app’s real-time list and can be advanced through the status workflow.
+**Updated** Enhanced document structure with new tracking fields
+
+This document appears immediately in the staff app's real-time list and can be advanced through the status workflow.
 
 **Section sources**
-- [detect_wheelchair.py:179-192](file://detector/detect_wheelchair.py#L179-L192)
+- [detect_wheelchair.py:381-423](file://detector/detect_wheelchair.py#L381-L423)
 - [PROJECT.md:60-80](file://PROJECT.md#L60-L80)
 
 ## Dependency Analysis
@@ -313,14 +341,14 @@ CLOUD_FIRESTORE --> FIRESTORE
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
-- [permintaan.dart:1-214](file://whoosh_ramah/lib/models/permintaan.dart#L1-L214)
-- [permintaan_service.dart:1-136](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L136)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
+- [permintaan.dart:1-255](file://whoosh_ramah/lib/models/permintaan.dart#L1-L255)
+- [permintaan_service.dart:1-228](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L228)
 
 **Section sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
-- [permintaan.dart:1-214](file://whoosh_ramah/lib/models/permintaan.dart#L1-L214)
-- [permintaan_service.dart:1-136](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L136)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
+- [permintaan.dart:1-255](file://whoosh_ramah/lib/models/permintaan.dart#L1-L255)
+- [permintaan_service.dart:1-228](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L228)
 
 ## Performance Considerations
 - **Detection throttling:** The detector limits detection calls per second to reduce API/model load.
@@ -328,6 +356,7 @@ CLOUD_FIRESTORE --> FIRESTORE
 - **Consecutive frame requirement:** A wheelchair must be detected multiple times consecutively before creating a task.
 - **Firestore query design:** The Flutter service avoids composite indexes by ordering only on one field and sorting locally where needed.
 - **Real-time streams:** Streams are used efficiently for passive UI updates rather than polling.
+- **Retry mechanism:** Exponential backoff prevents overwhelming the network during transient failures.
 
 [No sources needed since this section provides general guidance]
 
@@ -337,20 +366,27 @@ CLOUD_FIRESTORE --> FIRESTORE
 If the service account key file is missing, the detector exits early with a clear message. Ensure the Firebase service account JSON file exists at the configured path.
 
 **Section sources**
-- [detect_wheelchair.py:169-176](file://detector/detect_wheelchair.py#L169-L176)
+- [detect_wheelchair.py:367-372](file://detector/detect_wheelchair.py#L367-L372)
 
 ### Network Failures During Detection
 Detection failures are caught and logged without stopping the detector loop. The detector continues running and retries subsequent frames.
 
 **Section sources**
-- [detect_wheelchair.py:251-255](file://detector/detect_wheelchair.py#L251-L255)
+- [detect_wheelchair.py:623-627](file://detector/detect_wheelchair.py#L623-L627)
 
 ### Retry Mechanisms
-The current implementation does not implement explicit retry logic for Firestore writes. Recommendations:
+The implementation now includes robust retry logic with exponential backoff:
 
-- Wrap Firestore write calls in retry logic with exponential backoff.
-- Log failed attempts separately for monitoring.
-- Consider a background job queue if offline recovery is required.
+- **Configurable retry attempts:** Controlled by `PERCOBAAN_KIRIM` environment variable (default: 3).
+- **Exponential backoff:** Each retry attempt waits longer than the previous one using `JEDA_COBA_LAGI_DETIK * percobaan`.
+- **Graceful degradation:** Failed Firestore writes don't stop the detection loop.
+- **Logging:** All retry attempts are logged with attempt numbers and error details.
+
+Configuration parameters:
+- `PERCOBAAN_KIRIM`: Number of retry attempts (default: 3)
+- `JEDA_COBA_LAGI_DETIK`: Base delay between retries in seconds (default: 2.0)
+
+**Updated** Enhanced retry mechanism with exponential backoff
 
 ### Monitoring Detection-to-Task Conversion Rates
 To monitor conversion quality:
@@ -359,17 +395,20 @@ To monitor conversion quality:
 - Track the number of Firestore documents created per camera.
 - Compare `keyakinan` distribution across created tasks.
 - Use `idKamera` and `dibuatPada` to compute hourly/daily conversion metrics.
+- Monitor `jumlahTerdeteksi` to understand detection density.
 - Alert when conversion drops below expected thresholds.
 
-[No sources needed since this section provides general guidance]
+**Updated** Added monitoring for new tracking fields
 
 ### Security Rules Configuration
 For demo purposes, the security rules allow unrestricted read and write access to the `permintaan_pendampingan` collection. This is explicitly marked as demo-only and should not be used in production.
 
 **Section sources**
-- [PROJECT.md:97-108](file://PROJECT.md#L97-L108)
+- [PROJECT.md:116-130](file://PROJECT.md#L116-L130)
 
 ## Conclusion
-The Firebase integration connects the AI wheelchair detector with the Whoosh Ramah mobile application through Firestore. The Python `PengirimFirebase` class writes structured assistance requests, while the Flutter `Permintaan` model and `PermintaanService` provide type-safe, real-time access to those requests. The schema enforces consistent field naming, enum-based types, and a strict status workflow. For production readiness, add robust retry mechanisms, secure Firestore rules, and monitoring dashboards for detection-to-task conversion metrics.
+The Firebase integration connects the AI wheelchair detector with the Whoosh Ramah mobile application through Firestore. The Python `PengirimFirebase` class writes structured assistance requests with enhanced reliability through retry logic and exponential backoff, while the Flutter `Permintaan` model and `PermintaanService` provide type-safe, real-time access to those requests. The schema enforces consistent field naming, enum-based types, and a strict status workflow. New fields like `jumlahTerdeteksi` and `idLacak` provide enhanced tracking capabilities for better operational insights. For production readiness, add robust retry mechanisms, secure Firestore rules, and monitoring dashboards for detection-to-task conversion metrics.
+
+**Updated** Enhanced with improved reliability and tracking capabilities
 
 [No sources needed since this section summarizes without analyzing specific files]

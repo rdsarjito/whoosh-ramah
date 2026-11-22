@@ -1,1 +1,0 @@
-Hackathon project that wires a Python wheelchair detector and a Flutter passenger-assistance app together over a shared Cloud Firestore schema, with static HTML mockups as the design source of truth.

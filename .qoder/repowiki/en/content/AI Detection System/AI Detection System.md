@@ -12,6 +12,15 @@
 - [PROJECT.md](file://PROJECT.md)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Enhanced three-mode architecture documentation with ByteTrack integration details
+- Added PelacakTugas class documentation for per-person task management
+- Updated Firebase integration section with retry logic and exponential backoff
+- Added anonymous photo verification system documentation
+- Enhanced performance optimization techniques with tracking-specific optimizations
+- Updated troubleshooting guide with new features
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -31,6 +40,8 @@ The system supports three model modes:
 - Roboflow serverless inference using a pre-trained model via API.
 - Local YOLOv8 model trained on a custom dataset.
 - YOLO-World zero-shot mode where detection classes are specified as text.
+
+**Updated** The system now includes advanced tracking capabilities with ByteTrack integration for persistent person identification, per-person task management through the PelacakTugas class, and an anonymous photo verification system for privacy-preserving verification.
 
 The documentation covers camera handling, preprocessing, detection logic, confidence scoring, Firestore task creation, training procedures, deployment options, performance tuning, and the data contract used by the mobile app.
 
@@ -64,13 +75,13 @@ READM -.-> DET
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:1-291](file://detector/detect_wheelchair.py#L1-L291)
+- [detect_wheelchair.py:1-708](file://detector/detect_wheelchair.py#L1-L708)
 - [train_yolo.py:1-64](file://detector/train_yolo.py#L1-L64)
-- [README.md:1-93](file://detector/README.md#L1-L93)
-- [permintaan_service.dart:1-136](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L136)
-- [permintaan.dart:1-25](file://whoosh_ramah/lib/models/permintaan.dart#L1-L25)
-- [petugas_tugas_screen.dart:34-75](file://whoosh_ramah/lib/screens/petugas_tugas_screen.dart#L34-L75)
-- [main.dart:1-34](file://whoosh_ramah/lib/main.dart#L1-L34)
+- [README.md:1-96](file://detector/README.md#L1-L96)
+- [permintaan_service.dart:1-228](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L228)
+- [permintaan.dart:1-255](file://whoosh_ramah/lib/models/permintaan.dart#L1-L255)
+- [petugas_tugas_screen.dart:1-748](file://whoosh_ramah/lib/screens/petugas_tugas_screen.dart#L1-L748)
+- [main.dart:1-48](file://whoosh_ramah/lib/main.dart#L1-L48)
 
 **Section sources**
 - [PROJECT.md:24-36](file://PROJECT.md#L24-L36)
@@ -78,7 +89,11 @@ READM -.-> DET
 ## Core Components
 - Camera and video source handling: OpenCV `VideoCapture` supports webcam index, file paths, and RTSP URLs.
 - Model abstraction: Three strategies share a common interface for detection, returning normalized bounding boxes and confidence scores.
+- **Enhanced** Persistent tracking with ByteTrack: Maintains track IDs across frames for consistent person identification.
+- **New** Per-person task management: PelacakTugas class manages individual person tracking, preventing duplicate tasks per person.
 - Confidence and temporal gating: Only detections matching target classes above a threshold and observed across consecutive frames trigger task creation. Anti-spacing prevents duplicate tasks from the same camera within a time window.
+- **Enhanced** Firebase integration: Improved error handling with retry logic and exponential backoff for reliable task creation.
+- **New** Anonymous photo verification: Privacy-preserving crop extraction with face blurring and pixelation for verification purposes.
 - Firestore integration: When a valid detection is confirmed, a new document is added to the `permintaan_pendampingan` collection with fields such as assistance type, pickup location, status, source, confidence, and timestamps.
 - Mobile app integration: The Flutter service reads and streams the same Firestore collection, mapping documents to domain models and exposing streams for UI components.
 
@@ -90,8 +105,11 @@ Key responsibilities:
 - `petugas_tugas_screen.dart`: listens to all requests and highlights new tasks, including those created by the AI camera.
 
 **Section sources**
-- [detect_wheelchair.py:21-68](file://detector/detect_wheelchair.py#L21-L68)
-- [detect_wheelchair.py:73-158](file://detector/detect_wheelchair.py#L73-L158)
+- [detect_wheelchair.py:48-92](file://detector/detect_wheelchair.py#L48-L92)
+- [detect_wheelchair.py:97-180](file://detector/detect_wheelchair.py#L97-L180)
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
+- [detect_wheelchair.py:362-452](file://detector/detect_wheelchair.py#L362-L452)
+- [detect_wheelchair.py:207-295](file://detector/detect_wheelchair.py#L207-L295)
 - [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
 - [detect_wheelchair.py:198-286](file://detector/detect_wheelchair.py#L198-L286)
 - [train_yolo.py:34-58](file://detector/train_yolo.py#L34-L58)
@@ -110,11 +128,14 @@ sequenceDiagram
 participant Cam as "Camera / Video Source"
 participant Det as "detect_wheelchair.py"
 participant Mod as "YOLO Model"
+participant Track as "ByteTrack/PelacakTugas"
 participant FB as "Firebase Firestore"
 participant App as "Flutter App"
 Cam->>Det : Read frame
 Det->>Mod : Run detection
 Mod-->>Det : Bounding boxes + confidences
+Det->>Track : Process with persistent tracking
+Track-->>Det : Confirmed person ID + confidence
 Det->>Det : Filter by class + threshold + temporal consistency
 alt Confirmed wheelchair
 Det->>FB : Add document to permintaan_pendampingan
@@ -127,6 +148,7 @@ end
 
 **Diagram sources**
 - [detect_wheelchair.py:214-286](file://detector/detect_wheelchair.py#L214-L286)
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
 
 ## Detailed Component Analysis
@@ -142,8 +164,8 @@ CheckSource --> |No| End(["Exit"])
 CheckSource --> |Yes| Throttle["Throttle inference interval"]
 Throttle --> Detect["Run model.deteksi(frame)"]
 Detect --> Filter["Filter by KELAS_TARGET and AMBANG_KEYAKINAN"]
-Filter --> Consistency["Increment consecutive counter if detected"]
-Consistency --> Confirm{"Counter >= FRAME_BERTURUT<br/>and cooldown elapsed?"}
+Filter --> Track["Process with PelacakTugas for persistent tracking"]
+Track --> Confirm{"Per-person confirmation<br/>and cooldown elapsed?"}
 Confirm --> |No| Draw["Draw boxes and status"]
 Confirm --> |Yes| CreateTask["Create Firestore task with confidence"]
 CreateTask --> Reset["Reset counter and update last task time"]
@@ -154,6 +176,7 @@ Wait --> ReadFrame
 
 **Diagram sources**
 - [detect_wheelchair.py:214-286](file://detector/detect_wheelchair.py#L214-L286)
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
 
 **Section sources**
 - [detect_wheelchair.py:214-286](file://detector/detect_wheelchair.py#L214-L286)
@@ -183,10 +206,12 @@ Three model strategies implement a shared detection interface:
 - Local YOLOv8:
   - Loads a `.pt` model file.
   - Iterates over boxes, maps class indices to names, and extracts coordinates.
+  - **Enhanced** Uses ByteTrack with `persist=True` for persistent person tracking.
 
 - YOLO-World zero-shot:
   - Downloads a world model once and sets detection classes via text.
   - Predictions use a low default confidence; filtering is applied downstream.
+  - **Enhanced** Uses ByteTrack with `persist=True` for persistent person tracking.
 
 Confidence scoring and target class filtering:
 - Target classes are configured via environment variables and normalized to lowercase.
@@ -205,6 +230,10 @@ class ModelLokal {
 class ModelYoloWorld {
 +deteksi(frame) list
 }
+class PelacakTugas {
++proses(terlihat, sekarang) list
++catat_kirim(id_lacak, sekarang, berhasil) void
+}
 class PengirimFirebase {
 +kirim_tugas(keyakinan) void
 }
@@ -215,16 +244,17 @@ class DetectorMain {
 DetectorMain --> ModelRoboflow : "uses"
 DetectorMain --> ModelLokal : "uses"
 DetectorMain --> ModelYoloWorld : "uses"
+DetectorMain --> PelacakTugas : "uses"
 DetectorMain --> PengirimFirebase : "uses"
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:73-158](file://detector/detect_wheelchair.py#L73-L158)
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:97-180](file://detector/detect_wheelchair.py#L97-L180)
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
 - [detect_wheelchair.py:198-286](file://detector/detect_wheelchair.py#L198-L286)
 
 **Section sources**
-- [detect_wheelchair.py:73-158](file://detector/detect_wheelchair.py#L73-L158)
+- [detect_wheelchair.py:97-180](file://detector/detect_wheelchair.py#L97-L180)
 - [detect_wheelchair.py:198-286](file://detector/detect_wheelchair.py#L198-L286)
 
 ### Firebase Firestore Integration and Task Creation
@@ -237,8 +267,15 @@ When a wheelchair is confirmed:
   - `sumber`: source "kamera_ai".
   - `idKamera`: camera identifier.
   - `keyakinan`: rounded confidence score.
+  - `jumlahTerdeteksi`: number of detected wheelchairs.
+  - `idLacak`: ByteTrack person ID (for tracking-enabled modes).
   - `namaPenumpang`: null for AI-created tasks.
   - `dibuatPada`: server timestamp.
+
+**Enhanced** The Firebase integration now includes robust retry logic with exponential backoff:
+- Multiple retry attempts with increasing delays between tries.
+- Graceful error handling that doesn't stop the detection loop.
+- Anonymous photo verification system with privacy-preserving processing.
 
 The Flutter app uses the same collection name and field conventions to display tasks.
 
@@ -247,19 +284,74 @@ sequenceDiagram
 participant Det as "detect_wheelchair.py"
 participant FB as "Firestore"
 participant App as "Flutter PermintaanService"
-Det->>FB : add({jenisBantuan, titikJemput, status, sumber, idKamera, keyakinan, dibuatPada})
+Det->>FB : add({jenisBantuan, titikJemput, status, sumber, idKamera, keyakinan, jumlahTerdeteksi, idLacak, dibuatPada})
+FB-->>Det : Success with document ID
+Det->>FB : Upload anonymous photo (if enabled)
 FB-->>App : Stream snapshot of permintaan_pendampingan
 App->>App : Map to Permintaan model
 App-->>UI : Render new task for staff
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:381-423](file://detector/detect_wheelchair.py#L381-L423)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
 
 **Section sources**
-- [detect_wheelchair.py:164-192](file://detector/detect_wheelchair.py#L164-L192)
+- [detect_wheelchair.py:381-423](file://detector/detect_wheelchair.py#L381-L423)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
+
+### Per-Person Task Management with PelacakTugas
+**New** The PelacakTugas class provides sophisticated per-person task management for tracking-enabled modes (yoloworld/lokal):
+
+- **Persistent tracking**: Maintains streak counts per track ID across frames.
+- **Duplicate prevention**: Tracks which IDs have already had tasks created.
+- **Per-person cooldown**: Each person has their own cooldown timer, not global.
+- **Automatic cleanup**: Removes IDs that haven't been seen for over 30 seconds.
+- **Smart reset**: Resets streak counters when a person disappears and reappears.
+
+Key features:
+- `proses()`: Processes detected objects and returns IDs eligible for new tasks.
+- `catat_kirim()`: Records successful task creation and resets streak counters.
+- Configurable thresholds for consecutive detection requirements and cooldown periods.
+
+```mermaid
+flowchart TD
+Detect["Detection Results"] --> Process["PelacakTugas.proses()"]
+Process --> UpdateStreak["Update streak per track ID"]
+UpdateStreak --> Cleanup["Clean up expired IDs (>30s)"]
+Cleanup --> CheckEligible["Check eligibility per ID"]
+CheckEligible --> StreakOK{"Streak >= FRAME_BERTURUT?"}
+StreakOK --> |No| Skip["Skip this ID"]
+StreakOK --> |Yes| CooldownOK{"Cooldown elapsed?"}
+CooldownOK --> |No| Skip
+CooldownOK --> |Yes| ReturnID["Return ID for task creation"]
+ReturnID --> Record["Record task attempt"]
+```
+
+**Diagram sources**
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
+
+**Section sources**
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
+
+### Anonymous Photo Verification System
+**New** Privacy-preserving photo verification system for staff verification:
+
+- **Face blurring**: Uses Haar cascade classifiers to detect and blur faces automatically.
+- **Pixelation effect**: Reduces image resolution then upscales with nearest-neighbor interpolation for privacy.
+- **Size constraints**: Limits maximum dimensions to prevent large file uploads.
+- **Background processing**: Asynchronous deletion of photos after TTL expiration.
+- **Error resilience**: Photo processing failures don't prevent task creation.
+
+Technical implementation:
+- JPEG compression at quality 60 for optimal size/quality balance.
+- Automatic cleanup thread with priority queue for scheduled deletions.
+- Base64 encoding for efficient Firestore storage.
+- Configurable TTL (default 600 seconds) for automatic photo removal.
+
+**Section sources**
+- [detect_wheelchair.py:207-295](file://detector/detect_wheelchair.py#L207-L295)
+- [detect_wheelchair.py:298-357](file://detector/detect_wheelchair.py#L298-L357)
 
 ### Model Training Procedures Using Roboflow SDK
 Training workflow:
@@ -299,6 +391,11 @@ Configure --> End(["Ready for local detection"])
   - Webcam or video file/URL.
   - Optional Firebase integration disabled for testing.
 
+**Enhanced** New deployment considerations:
+- ByteTrack integration requires sufficient memory for maintaining track states.
+- Anonymous photo verification adds storage overhead but improves verification quality.
+- Per-person tracking reduces false positives significantly compared to global tracking.
+
 **Section sources**
 - [detect_wheelchair.py:33-68](file://detector/detect_wheelchair.py#L33-L68)
 - [detect_wheelchair.py:214-231](file://detector/detect_wheelchair.py#L214-L231)
@@ -320,9 +417,17 @@ Configure --> End(["Ready for local detection"])
 - Efficient Firestore queries:
   - Flutter streams order by a single field to avoid composite indexes.
 
+**Enhanced** New performance optimizations:
+- **ByteTrack persistence**: Reduces redundant tracking computations across frames.
+- **Per-person cooldown**: More granular than global cooldown, allowing multiple people simultaneously.
+- **Asynchronous photo processing**: Background threads handle photo operations without blocking detection loop.
+- **Memory management**: Automatic cleanup of expired track IDs and photo records.
+- **Efficient Firestore operations**: Batch operations and optimized query patterns.
+
 **Section sources**
 - [detect_wheelchair.py:58-68](file://detector/detect_wheelchair.py#L58-L68)
 - [detect_wheelchair.py:248-274](file://detector/detect_wheelchair.py#L248-L274)
+- [detect_wheelchair.py:460-533](file://detector/detect_wheelchair.py#L460-L533)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
 
 ### API Endpoints and Data Formats for Mobile Communication
@@ -336,7 +441,10 @@ There are no HTTP endpoints exposed by the detector. Communication between the d
   - `sumber`: string ("kamera_ai")
   - `idKamera`: string (camera identifier)
   - `keyakinan`: number (rounded confidence)
+  - `jumlahTerdeteksi`: number (total detected wheelchairs)
+  - `idLacak`: string (ByteTrack person ID for tracking-enabled modes)
   - `namaPenumpang`: nullable string (null for AI tasks)
+  - `adaFoto`: boolean (true if anonymous verification photo uploaded)
   - `dibuatPada`: server timestamp
 
 - Flutter service methods:
@@ -354,17 +462,20 @@ string status
 string sumber
 string idKamera
 float keyakinan
+number jumlahTerdeteksi
+string idLacak
 string namaPenumpang
+boolean adaFoto
 timestamp dibuatPada
 }
 ```
 
 **Diagram sources**
-- [detect_wheelchair.py:179-192](file://detector/detect_wheelchair.py#L179-L192)
+- [detect_wheelchair.py:392-403](file://detector/detect_wheelchair.py#L392-L403)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
 
 **Section sources**
-- [detect_wheelchair.py:179-192](file://detector/detect_wheelchair.py#L179-L192)
+- [detect_wheelchair.py:392-403](file://detector/detect_wheelchair.py#L392-L403)
 - [permintaan_service.dart:70-78](file://whoosh_ramah/lib/services/permintaan_service.dart#L70-L78)
 - [permintaan.dart:7-25](file://whoosh_ramah/lib/models/permintaan.dart#L7-L25)
 
@@ -393,15 +504,15 @@ SVC --> UI["Screens"]
 
 **Diagram sources**
 - [detect_wheelchair.py:21-28](file://detector/detect_wheelchair.py#L21-L28)
-- [detect_wheelchair.py:73-158](file://detector/detect_wheelchair.py#L73-L158)
-- [detect_wheelchair.py:164-177](file://detector/detect_wheelchair.py#L164-L177)
+- [detect_wheelchair.py:97-180](file://detector/detect_wheelchair.py#L97-L180)
+- [detect_wheelchair.py:362-375](file://detector/detect_wheelchair.py#L362-L375)
 - [main.dart:1-13](file://whoosh_ramah/lib/main.dart#L1-L13)
 - [permintaan_service.dart:1-4](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L4)
 
 **Section sources**
 - [detect_wheelchair.py:21-28](file://detector/detect_wheelchair.py#L21-L28)
-- [detect_wheelchair.py:73-158](file://detector/detect_wheelchair.py#L73-L158)
-- [detect_wheelchair.py:164-177](file://detector/detect_wheelchair.py#L164-L177)
+- [detect_wheelchair.py:97-180](file://detector/detect_wheelchair.py#L97-L180)
+- [detect_wheelchair.py:362-375](file://detector/detect_wheelchair.py#L362-L375)
 - [main.dart:1-13](file://whoosh_ramah/lib/main.dart#L1-L13)
 - [permintaan_service.dart:1-4](file://whoosh_ramah/lib/services/permintaan_service.dart#L1-L4)
 
@@ -413,6 +524,13 @@ SVC --> UI["Screens"]
 - Prefer local models when internet is unreliable.
 - Avoid unnecessary image preprocessing; let models handle scaling.
 - Limit Firestore query complexity; order by one field to avoid composite indexes.
+
+**Enhanced** New performance considerations:
+- **ByteTrack memory usage**: Monitor RAM consumption when tracking multiple persons simultaneously.
+- **Photo processing overhead**: Disable anonymous photo verification on resource-constrained devices.
+- **Per-person tracking efficiency**: More accurate than global tracking but requires more computational resources.
+- **Background thread management**: Ensure proper cleanup of photo deletion threads to prevent memory leaks.
+- **Database query optimization**: Use appropriate indexing strategies for Firestore collections.
 
 [No sources needed since this section provides general guidance]
 
@@ -433,15 +551,36 @@ Common issues and resolutions:
 - High API usage:
   - Increase `DETEKSI_TIAP_DETIK` to call the model less frequently.
 
+**Enhanced** New troubleshooting scenarios:
+- **Tracking issues**:
+  - Ensure ByteTrack is properly initialized with `persist=True`.
+  - Check memory allocation for track state management.
+  - Verify that track IDs are being assigned consistently across frames.
+- **Photo verification problems**:
+  - Check Haar cascade availability for face detection.
+  - Verify sufficient disk space for temporary photo processing.
+  - Ensure proper permissions for Firestore photo collection.
+- **Per-person task conflicts**:
+  - Review PelacakTugas configuration for appropriate cooldown periods.
+  - Check for track ID collisions in crowded scenes.
+  - Monitor memory usage for long-running detection sessions.
+- **Firebase connection issues**:
+  - Check network connectivity and Firebase service status.
+  - Review retry logs for exponential backoff behavior.
+  - Verify Firestore security rules allow write operations.
+
 **Section sources**
 - [detect_wheelchair.py:79-86](file://detector/detect_wheelchair.py#L79-L86)
 - [detect_wheelchair.py:108-113](file://detector/detect_wheelchair.py#L108-L113)
 - [detect_wheelchair.py:169-176](file://detector/detect_wheelchair.py#L169-L176)
 - [detect_wheelchair.py:228-231](file://detector/detect_wheelchair.py#L228-L231)
 - [detect_wheelchair.py:248-274](file://detector/detect_wheelchair.py#L248-L274)
+- [detect_wheelchair.py:404-423](file://detector/detect_wheelchair.py#L404-L423)
 
 ## Conclusion
 The Whoosh Ramah AI detection system integrates real-time computer vision with cloud-backed workflows to automate assistance requests for wheelchair users. The Python detector handles camera input, YOLO-based detection, confidence and temporal gating, and Firestore task creation. The Flutter app consumes these tasks via Firestore streams, enabling staff to respond promptly. With configurable model modes, robust performance tuning, and clear data contracts, the system is deployable on laptops and edge devices while maintaining accuracy and reliability.
+
+**Enhanced** Recent improvements include advanced persistent tracking with ByteTrack, sophisticated per-person task management through PelacakTugas, privacy-preserving anonymous photo verification, and resilient Firebase integration with retry logic. These enhancements significantly improve detection accuracy, reduce false positives, and provide better user experience for both automated detection and manual verification workflows.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -460,11 +599,18 @@ Important environment variables:
 - `FRAME_BERTURUT`: required consecutive detections.
 - `JEDA_ANTAR_TUGAS_DETIK`: cooldown between tasks.
 - `DETEKSI_TIAP_DETIK`: inference frequency.
+- `JEDA_COBA_LAGI_DETIK`: retry delay for Firebase operations.
+- `PERCOBAAN_KIRIM`: number of Firebase send attempts.
 - `LOKASI_KAMERA`: camera location string.
 - `ID_KAMERA`: camera identifier.
 - `FIREBASE_KEY`: path to Firebase service account key.
 - `KOLEKSI_FIRESTORE`: Firestore collection name.
 
+**Enhanced** New configuration options:
+- `FOTO_AKTIF`: enable/disable anonymous photo verification ("true"/"false").
+- `FOTO_TTL_DETIK`: photo retention time in seconds (default 600).
+- `FOTO_MAKS_PIKSEL`: maximum photo dimension for privacy preservation.
+
 **Section sources**
-- [detect_wheelchair.py:33-68](file://detector/detect_wheelchair.py#L33-L68)
+- [detect_wheelchair.py:48-92](file://detector/detect_wheelchair.py#L48-L92)
 - [README.md:77-85](file://detector/README.md#L77-L85)
