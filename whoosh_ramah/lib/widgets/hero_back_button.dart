@@ -2,11 +2,16 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme.dart';
 
-/// Tombol kembali bulat putih di hero (chevron kiri). Dipakai layar pesan &
-/// status penumpang. Ikon bersifat dekoratif; label aksesibilitas eksplisit
-/// agar jelas untuk TalkBack (bagian 8). Area sentuh 48dp.
+/// Tombol kembali bulat abu blok di header putih (chevron kiri), gaya
+/// Brightline. Dipakai layar pesan & status penumpang. Ikon bersifat
+/// dekoratif; label aksesibilitas eksplisit agar jelas untuk TalkBack
+/// (bagian 8). Area sentuh 48dp.
 class HeroBackButton extends StatelessWidget {
-  const HeroBackButton({super.key, required this.onTap, this.label = 'Kembali'});
+  const HeroBackButton({
+    super.key,
+    required this.onTap,
+    this.label = 'Kembali',
+  });
 
   final VoidCallback onTap;
   final String label;
@@ -24,8 +29,15 @@ class HeroBackButton extends StatelessWidget {
           child: Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.chevron_left, size: 28, color: AppColors.textPrimary),
+            decoration: const BoxDecoration(
+              color: AppColors.block,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.chevron_left,
+              size: 28,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ),

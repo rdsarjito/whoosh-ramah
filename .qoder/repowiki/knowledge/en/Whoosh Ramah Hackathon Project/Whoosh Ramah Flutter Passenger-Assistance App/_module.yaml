@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: whoosh_ramah_app
+title: Whoosh Ramah Flutter Passenger-Assistance App
+scope:
+    - whoosh_ramah/
+source_files: []
+depends_on: []
+related_to: []

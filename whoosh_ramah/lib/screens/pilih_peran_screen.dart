@@ -1,16 +1,18 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme.dart';
-import '../widgets/hero_header.dart';
-import '../widgets/train_illustration.dart';
+import '../transisi.dart';
+import '../widgets/logo_whoosh.dart';
 import 'keluarga_pantau_screen.dart';
 import 'penumpang_tiket_screen.dart';
 import 'petugas_tugas_screen.dart';
 
-/// Layar 0 — Pilih peran (design/Main.dc.html).
+/// Layar 0 — Pilih peran, persis contoh Brightline
+/// (whoosh-ramah-gaya-baru/design/Contoh-Brightline-Pilih-Peran.dc.html).
 ///
-/// Penumpang -> layar tiket; Petugas -> daftar tugas; Keluarga -> pantau
-/// perjalanan.
+/// Kanvas putih, satu aksen merah: kartu Penumpang merah, kartu Petugas &
+/// Keluarga abu blok, chip panah bundar 48. Navigasi tetap: Penumpang ->
+/// layar tiket; Petugas -> daftar tugas; Keluarga -> pantau perjalanan.
 class PilihPeranScreen extends StatelessWidget {
   const PilihPeranScreen({super.key});
 
@@ -18,155 +20,166 @@ class PilihPeranScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            HeroHeader(
-              color: AppColors.pinkHero,
-              borderRadius: 40,
-              padding: const EdgeInsets.fromLTRB(22, 56, 22, 26),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(color: AppColors.redPrimary, shape: BoxShape.circle),
-                        child: Semantics(
-                          label: 'Logo Whoosh Ramah',
-                          child: const Icon(Icons.favorite, size: 22, color: Colors.white),
-                        ),
+      body: SafeArea(
+        // LayoutBuilder + IntrinsicHeight: footer menempel di dasar layar
+        // saat muat, dan seluruh halaman bisa digulir saat teks diperbesar
+        // (text scale 1.3–1.5) tanpa overflow.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Baris merek: ubin logo 40 + wordmark 18/800.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
+                      child: Row(
+                        children: [
+                          const LogoWhoosh(size: 40),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Whoosh Ramah',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Whoosh Ramah',
+                    ),
+                    // Hero: eyebrow merah, judul 42 dengan span merah, isi 17.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 36, 22, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'MODE DEMO · HACKATHON KCIC',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                              color: AppColors.redText,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Semantics(
+                            header: true,
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Perjalanan nyaman, ',
+                                children: [
+                                  TextSpan(
+                                    text: 'untuk semua.',
+                                    style: TextStyle(color: AppColors.redPrimary),
+                                  ),
+                                ],
+                              ),
+                              style: const TextStyle(
+                                fontSize: 42,
+                                fontWeight: FontWeight.w800,
+                                height: 1.04,
+                                letterSpacing: -1.4,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Pilih peran untuk mencoba alur pendampingan penumpang prioritas.',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w500,
+                              height: 1.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Tiga kartu peran, gap 12.
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _KartuPeran(
+                            judul: 'Penumpang',
+                            subjudul: 'Pesan pendamping untuk perjalanan Anda',
+                            utama: true,
+                            onTap: () => Navigator.of(context).push(
+                              TransisiHalaman.masuk(halaman: const PenumpangTiketScreen()),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _KartuPeran(
+                            judul: 'Petugas',
+                            subjudul: 'Terima tugas dari aplikasi dan Kamera AI',
+                            onTap: () => Navigator.of(context).push(
+                              TransisiHalaman.masuk(halaman: const PetugasTugasScreen()),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _KartuPeran(
+                            judul: 'Keluarga',
+                            subjudul: 'Pantau perjalanan orang tersayang',
+                            onTap: () => Navigator.of(context).push(
+                              TransisiHalaman.masuk(halaman: const KeluargaPantauScreen()),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(22, 24, 22, 28),
+                      child: Text(
+                        'Prototipe hackathon · semua data adalah contoh',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.2,
-                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textMuted,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Perjalanan nyaman untuk semua penumpang',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
-                      letterSpacing: -0.5,
-                      color: AppColors.textPrimary,
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Pendampingan lansia, penyandang disabilitas, dan penumpang '
-                    'prioritas dari stasiun asal sampai tujuan.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      height: 1.5,
-                      color: Color(0xFF5A4A50),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const TrainIllustration(),
-                ],
+                  ],
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'MASUK SEBAGAI (MODE DEMO)',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _RoleCard(
-                    title: 'Penumpang',
-                    subtitle: 'Pesan pendamping untuk perjalanan',
-                    icon: Icons.accessible,
-                    badgeColor: AppColors.pinkHero,
-                    iconColor: AppColors.redPrimary,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PenumpangTiketScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _RoleCard(
-                    title: 'Petugas stasiun',
-                    subtitle: 'Terima dan selesaikan tugas',
-                    icon: Icons.verified_user_outlined,
-                    badgeColor: AppColors.blueHero,
-                    iconColor: AppColors.blueOfficer,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PetugasTugasScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _RoleCard(
-                    title: 'Keluarga',
-                    subtitle: 'Pantau perjalanan orang tersayang',
-                    icon: Icons.groups,
-                    badgeColor: AppColors.greenHero,
-                    iconColor: AppColors.greenFamily,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const KeluargaPantauScreen()),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 0, 18, 22),
-              child: Text(
-                'Prototipe hackathon · semua data adalah contoh',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Kartu pilihan peran (putih, badge ikon berwarna, panah kanan).
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.badgeColor,
-    required this.iconColor,
+/// Kartu peran gaya Brightline: radius 22, padding 22×20, tinggi minimum 104,
+/// judul 24/800 + subjudul 15/600, chip panah bundar 48 di kanan.
+///
+/// [utama] = kartu merah merek (Penumpang); lainnya abu blok dengan chip
+/// tinta. MergeSemantics: seluruh kartu jadi satu tombol berlabel
+/// `<judul> <subjudul>` untuk TalkBack.
+class _KartuPeran extends StatelessWidget {
+  const _KartuPeran({
+    required this.judul,
+    required this.subjudul,
     required this.onTap,
+    this.utama = false,
   });
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color badgeColor;
-  final Color iconColor;
+  final String judul;
+  final String subjudul;
   final VoidCallback onTap;
+  final bool utama;
 
   @override
   Widget build(BuildContext context) {
-    // MergeSemantics: seluruh kartu jadi satu tombol berlabel "<title> <subtitle>".
+    final warnaTeks = utama ? Colors.white : AppColors.textPrimary;
     return MergeSemantics(
       child: Semantics(
         button: true,
@@ -174,51 +187,57 @@ class _RoleCard extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minHeight: 104),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: utama ? AppColors.redPrimary : AppColors.block,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1F2430).withValues(alpha: 0.08),
-                  blurRadius: 26,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: Row(
               children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
-                  child: Icon(icon, size: 28, color: iconColor),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        title,
-                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                        judul,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: warnaTeks,
+                        ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
-                        subtitle,
-                        style: const TextStyle(
+                        subjudul,
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           height: 1.4,
-                          color: AppColors.textSecondary,
+                          color: utama ? Colors.white : AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(Icons.keyboard_arrow_right, size: 22, color: AppColors.textPrimary),
+                const SizedBox(width: 14),
+                // Chip panah 48×48: putih di kartu merah, tinta di kartu blok.
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: utama ? Colors.white : AppColors.textPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward,
+                    size: 22,
+                    color: utama ? AppColors.redPrimary : Colors.white,
+                  ),
+                ),
               ],
             ),
           ),

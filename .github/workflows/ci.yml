@@ -1,0 +1,81 @@
+# Tier 3 E4 — CI Whoosh Ramah.
+#
+# - analyze + seluruh tes widget/service di Linux (cepat).
+# - golden test di macOS: gambar golden direkam di macOS, dan perenderan font
+#   fallback berbeda antar OS, jadi job ini terpisah agar tidak false-positive.
+# - pemeriksaan sintaks detektor Python (tanpa model/venv, tidak butuh GPU).
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  flutter:
+    name: Flutter analyze + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: whoosh_ramah
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.1
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      # Golden dikecualikan di Linux (lihat job `golden`).
+      - name: Test
+        run: flutter test --exclude-tags golden --reporter expanded
+
+  golden:
+    name: Golden test (macOS)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: whoosh_ramah
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.1
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Golden test
+        run: flutter test --tags golden --reporter expanded
+
+      # Bila gagal, unggah gambar aktual supaya diff bisa dilihat dari artefak.
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: whoosh_ramah/test/**/failures/
+          if-no-files-found: ignore
+
+  detector:
+    name: Detektor Python (sintaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile check
+        run: python -m compileall -q detector/detect_wheelchair.py detector/train_yolo.py

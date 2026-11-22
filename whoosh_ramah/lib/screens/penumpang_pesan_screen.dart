@@ -4,18 +4,22 @@ import '../data/dummy.dart';
 import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
+import '../transisi.dart';
 import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
 import 'penumpang_status_screen.dart';
 
-/// Layar 2 — Pesan pendamping (design/Penumpang-Pesan.dc.html).
+/// Layar 2 — Pesan pendamping, gaya Brightline (kanvas putih, kotak pilihan
+/// radius 18, terpilih = merah muda + garis merah + badge centang).
 ///
 /// Penumpang memilih 1 dari 6 [JenisBantuan], 1 dari 3 titik jemput
 /// ([DummyData.titikJemput]), dan boleh menambah catatan. Tombol "Kirim
 /// permintaan" aktif setelah jenis bantuan & titik jemput dipilih; saat ditekan
 /// layar menampilkan loading, memanggil [PermintaanService.buatPermintaan], lalu
-/// `pushReplacement` ke layar status. Bila gagal, muncul SnackBar agar pengguna
-/// bisa mencoba lagi.
+/// `pushReplacement` ke layar status. Bila penumpang masih punya permintaan
+/// aktif, tidak ada dokumen baru dibuat dan layar status yang lama dibuka dengan
+/// SnackBar penjelasan. Bila gagal, muncul SnackBar agar pengguna bisa mencoba
+/// lagi.
 class PenumpangPesanScreen extends StatefulWidget {
   const PenumpangPesanScreen({super.key, this.service});
 
@@ -68,14 +72,28 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
     setState(() => _loading = true);
     try {
       final catatan = _catatan.text.trim();
-      final id = await _svc.buatPermintaan(
+      final hasil = await _svc.buatPermintaan(
         jenisBantuan: jenis,
         titikJemput: jemput,
         catatan: catatan.isEmpty ? null : catatan,
       );
       if (!mounted) return;
+      // Penjaga permintaan ganda: bila masih ada permintaan aktif, service tidak
+      // menulis dokumen baru — beri tahu penumpang lalu buka status yang lama.
+      if (hasil.sudahAda) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permintaan Anda masih aktif. Kami buka statusnya.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => PenumpangStatusScreen(idPermintaan: id)),
+        TransisiHalaman.masuk(
+          // Service yang sama diteruskan agar layar status tidak membuat
+          // instance baru (dan bisa diuji dengan service palsu).
+          halaman: PenumpangStatusScreen(idPermintaan: hasil.id, service: _svc),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -102,9 +120,7 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
         child: Column(
           children: [
             HeroHeader(
-              color: AppColors.pinkHero,
-              borderRadius: 32,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -116,8 +132,8 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
                         child: Text(
                           'Pesan pendamping',
                           style: TextStyle(
-                            fontSize: 25,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: -0.3,
                             color: AppColors.textPrimary,
                           ),
@@ -131,15 +147,15 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.75),
+                        color: AppColors.block,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Text(
                         ringkasanTiket,
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF5A4A50),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -251,14 +267,14 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: 'Contoh: saya membawa satu koper besar',
-        hintStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF6B7080)),
+        hintStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textMuted),
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        border: _border(AppColors.outlineSoft),
-        enabledBorder: _border(AppColors.outlineSoft),
+        border: _border(AppColors.outlineControl),
+        enabledBorder: _border(AppColors.outlineControl),
         focusedBorder: _border(AppColors.redPrimary),
-        disabledBorder: _border(AppColors.outlineSoft),
+        disabledBorder: _border(AppColors.outlineControl),
       ),
     );
   }
@@ -283,13 +299,12 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
           onTap: active ? _kirim : null,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 64,
+            height: 56,
             decoration: BoxDecoration(
-              color: canSubmit ? AppColors.redPrimary : AppColors.redPrimary.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: canSubmit && !_loading
-                  ? const [BoxShadow(color: Color(0x47E11D2E), blurRadius: 22, offset: Offset(0, 10))]
-                  : null,
+              // Nonaktif memakai nada diredam (bukan alpha 50%) agar teks
+              // putih tetap >= 4.5:1 — WCAG 1.4.3.
+              color: canSubmit ? AppColors.redPrimary : AppColors.redDisabled,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
             child: Center(
               child: _loading
@@ -306,7 +321,7 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
                           child: Text(
                             'Kirim permintaan',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white),
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
                         ),
                         SizedBox(width: 10),
@@ -321,7 +336,7 @@ class _PenumpangPesanScreenState extends State<PenumpangPesanScreen> {
   }
 }
 
-/// Judul bagian (18px, tebal 900).
+/// Judul bagian (18px, tebal 800).
 class _Heading extends StatelessWidget {
   const _Heading(this.text);
 
@@ -333,7 +348,7 @@ class _Heading extends StatelessWidget {
       header: true,
       child: Text(
         text,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.textPrimary),
       ),
     );
   }
@@ -373,12 +388,14 @@ class _ChoiceBox extends StatelessWidget {
   final bool showBadge;
   final double badgeSize;
 
-  static const Color _ikonNonAktif = Color(0xFF4A5060);
+  static const Color _ikonNonAktif = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
-    final border = selected ? AppColors.redPrimary : AppColors.outlineSoft;
-    final bg = selected ? AppColors.pinkHero : Colors.white;
+    // Batas kotak pilihan harus >= 3:1 (WCAG 1.4.11); yang terpilih memakai
+    // merah utama (4.74:1) dan yang belum memakai outlineControl (4.8:1).
+    final border = selected ? AppColors.redPrimary : AppColors.outlineControl;
+    final bg = selected ? AppColors.redSoft : Colors.white;
 
     Widget ikon;
     if (showBadge) {
@@ -386,7 +403,7 @@ class _ChoiceBox extends StatelessWidget {
         width: badgeSize,
         height: badgeSize,
         decoration: BoxDecoration(
-          color: selected ? AppColors.redPrimary : AppColors.innerGray,
+          color: selected ? AppColors.redPrimary : AppColors.block,
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: iconSize, color: selected ? Colors.white : _ikonNonAktif),
@@ -416,7 +433,7 @@ class _ChoiceBox extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: labelSize,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
                 height: 1.2,
                 color: AppColors.textPrimary,
               ),

@@ -1,0 +1,89 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+nodes_managed: true
+exported_at: "2026-11-22T03:08:52Z"
+modules:
+    "":
+        dir_name: Whoosh Ramah Hackathon Project
+        title: Whoosh Ramah Hackathon Project
+        scope:
+            - PROJECT.md
+            - .gitignore
+            - mise.toml
+        source_files: []
+        children:
+            - design_docs
+            - wheelchair_detector
+            - whoosh_ramah_app
+        depends_on: []
+        related_to: []
+    design_docs:
+        dir_name: Whoosh Ramah Screen Design Mockups
+        title: Whoosh Ramah Screen Design Mockups
+        scope:
+            - design/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: whoosh_ramah_app/app_shell
+    wheelchair_detector:
+        dir_name: Wheelchair Detection & Firebase Task Ingestion
+        title: Wheelchair Detection & Firebase Task Ingestion
+        scope:
+            - detector/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: whoosh_ramah_app/shared_layers
+    whoosh_ramah_app:
+        dir_name: Whoosh Ramah Flutter Passenger-Assistance App
+        title: Whoosh Ramah Flutter Passenger-Assistance App
+        scope:
+            - whoosh_ramah/
+        source_files: []
+        children:
+            - whoosh_ramah_app/app_shell
+            - whoosh_ramah_app/penumpang_flows
+            - whoosh_ramah_app/shared_layers
+        depends_on: []
+        related_to: []
+    whoosh_ramah_app/app_shell:
+        dir_name: App Bootstrap & Design System
+        title: App Bootstrap & Design System
+        scope:
+            - whoosh_ramah/lib/main.dart
+            - whoosh_ramah/lib/theme.dart
+            - whoosh_ramah/lib/firebase_options.dart
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: design_docs
+    whoosh_ramah_app/penumpang_flows:
+        dir_name: Penumpang Passenger Assistance Screens
+        title: Penumpang Passenger Assistance Screens
+        scope:
+            - whoosh_ramah/lib/screens/penumpang_pesan_screen.dart
+            - whoosh_ramah/lib/screens/penumpang_status_screen.dart
+            - whoosh_ramah/lib/screens/penumpang_tiket_screen.dart
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    whoosh_ramah_app/shared_layers:
+        dir_name: Shared Domain Models, Firestore Service & Reusable Widgets
+        title: Shared Domain Models, Firestore Service & Reusable Widgets
+        scope:
+            - whoosh_ramah/lib/models/
+            - whoosh_ramah/lib/services/
+            - whoosh_ramah/lib/widgets/
+            - whoosh_ramah/lib/data/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: wheelchair_detector

@@ -17,32 +17,33 @@ class BottomNavItem {
   final VoidCallback? onTap;
 }
 
-/// Menu bawah melayang: kotak putih radius 26, item aktif berlatar warna muda
-/// peran (bagian 7). Tinggi tiap item >= 52dp (bagian 8: minimal 48dp).
+/// Menu bawah gaya Brightline: bar putih rata dengan garis rambut di atas,
+/// item aktif berchip muda ([activeBackground]). Tinggi tiap item >= 56dp
+/// (bagian 8: minimal 48dp).
+///
+/// Tidak ada kontrol mati: item aktif adalah halaman saat ini, item dengan
+/// [BottomNavItem.onTap] menjalankan aksinya, dan item tanpa tujuan memberi
+/// umpan balik "segera hadir" plus label TalkBack yang jujur.
 class BottomNav extends StatelessWidget {
   const BottomNav({super.key, required this.items, required this.activeColor, required this.activeBackground});
 
   final List<BottomNavItem> items;
 
-  /// Warna teks/ikon item aktif (mis. merah penumpang).
+  /// Warna teks/ikon item aktif (merah teks merek untuk semua peran).
   final Color activeColor;
 
-  /// Latar muda item aktif (mis. merah muda hero penumpang).
+  /// Latar chip item aktif (mis. [AppColors.redSoft]).
   final Color activeBackground;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.bottomNav),
-        boxShadow: AppShadows.cardSoft,
+        border: Border(top: BorderSide(color: AppColors.outline)),
       ),
       child: Material(
         type: MaterialType.transparency,
-        borderRadius: BorderRadius.circular(AppRadius.bottomNav),
-        clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
             for (final item in items)
@@ -64,21 +65,29 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = item.active ? activeColor : AppColors.textSecondary;
-    // Ikon dekoratif; label aksesibilitas diambil dari teks (MergeSemantics).
-    return MergeSemantics(
-      child: Semantics(
-        button: true,
-        selected: item.active,
+    final adaAksi = item.onTap != null;
+    // Label eksplisit: item tanpa tujuan tidak boleh terdengar seperti tombol
+    // yang berfungsi penuh bagi pengguna TalkBack.
+    final label = item.active
+        ? '${item.label}, halaman saat ini'
+        : (adaAksi ? item.label : '${item.label}, segera hadir');
+    return Semantics(
+      button: !item.active,
+      selected: item.active,
+      label: label,
+      child: ExcludeSemantics(
         child: InkResponse(
-          onTap: item.onTap,
-          borderRadius: BorderRadius.circular(20),
+          onTap: item.active
+              ? null
+              : (item.onTap ?? () => _segeraHadir(context, item.label)),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 52),
-            margin: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+            constraints: const BoxConstraints(minHeight: 56),
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
             decoration: BoxDecoration(
               color: item.active ? activeBackground : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -90,7 +99,7 @@ class _NavItem extends StatelessWidget {
                   item.label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: item.active ? FontWeight.w800 : FontWeight.w700,
                     color: color,
                   ),
@@ -101,5 +110,12 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Umpan balik untuk item yang belum punya layar sungguhan.
+  void _segeraHadir(BuildContext context, String label) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$label segera hadir.')));
   }
 }

@@ -2,19 +2,17 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme.dart';
 
-/// Kartu putih utama: radius 24–28, bayangan lembut (blur 34, y 14, 10%).
+/// Kartu putih utama gaya Brightline: radius 22, garis rambut 1px
+/// [AppColors.outline], bayangan sangat lembut (blur 26, y 10, 6%).
 ///
 /// [margin] harus non-negatif — `Container` menolak margin/padding negatif.
-/// Untuk menumpuk kartu di atas hero, geser seluruh isi di bawah hero dengan
-/// `Transform.translate(offset: Offset(0, -N))` di layar pemanggil (setara
-/// `margin-top` negatif pada design).
 class WhiteCard extends StatelessWidget {
   const WhiteCard({
     super.key,
     required this.child,
     this.margin,
     this.padding = const EdgeInsets.all(20),
-    this.radius = AppRadius.cardLarge,
+    this.radius = AppRadius.card,
     this.shadow = AppShadows.card,
   });
 
@@ -31,6 +29,7 @@ class WhiteCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: AppColors.outline),
         boxShadow: shadow,
       ),
       // Material agar teks/ink punya kanvas; transparan supaya dekorasi Container terlihat.

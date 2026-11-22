@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Aturan keamanan Firestore Whoosh Ramah — KHUSUS DEMO HACKATHON.
+//
+// Sumber: PROJECT.md bagian 4 ("Aturan keamanan (KHUSUS DEMO)"). Aplikasi
+// penumpang, petugas, keluarga, dan detektor kamera AI semuanya membaca/menulis
+// koleksi `permintaan_pendampingan` tanpa login, jadi koleksi ini terbuka.
+// `permintaan_foto` (cuplikan verifikasi anonim, base64) dibaca layar petugas
+// dan ditulis/dihapus detektor — terbuka juga untuk demo.
+//
+// JANGAN dipakai produksi. Sebelum produksi: wajibkan autentikasi, batasi tulis
+// per peran (penumpang hanya dokumennya sendiri, petugas hanya perubahan status),
+// dan validasi bentuk dokumen di sini.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /permintaan_pendampingan/{doc} {
+      allow read, write: if true;   // HANYA untuk demo hackathon. Jangan dipakai produksi.
+    }
+
+    match /permintaan_foto/{doc} {
+      allow read, write: if true;   // HANYA untuk demo hackathon. Jangan dipakai produksi.
+    }
+
+    // Koleksi lain tidak boleh diakses sama sekali.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

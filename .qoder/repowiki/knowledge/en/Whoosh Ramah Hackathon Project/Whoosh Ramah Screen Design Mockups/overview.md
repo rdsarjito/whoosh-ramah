@@ -1,0 +1,1 @@
+Static HTML mockups of Whoosh Ramah's screen designs, serving as the visual and layout reference for the Kanvas (Gaya B) prototype.

@@ -1,0 +1,3 @@
+- Domain models live in `lib/models/` and are persisted through a dedicated service class in `lib/services/` that wraps Firestore calls.
+- Reusable UI components are extracted into `lib/widgets/` rather than duplicated across screens.
+- Theming (colors, typography, shadows, button styles) is centralized in `lib/theme.dart` and consumed via `Theme.of(context)` throughout screens.

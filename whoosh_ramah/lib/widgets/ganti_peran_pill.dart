@@ -2,7 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme.dart';
 
-/// Pill "Ganti peran" di pojok kiri atas hero (kembali ke layar pilih peran).
+/// Pill "Ganti peran" di pojok kiri atas header (kembali ke layar pilih
+/// peran). Gaya Brightline: chip abu blok dengan teks tinta di kanvas putih.
 ///
 /// Tanpa [onPressed], default-nya `Navigator.maybePop()`. Ikon panah bersifat
 /// dekoratif; label aksesibilitas diambil dari teks (MergeSemantics). Area
@@ -26,7 +27,7 @@ class GantiPeranPill extends StatelessWidget {
             height: 48,
             padding: const EdgeInsets.fromLTRB(10, 0, 16, 0),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.75),
+              color: AppColors.block,
               borderRadius: BorderRadius.circular(24),
             ),
             child: Row(

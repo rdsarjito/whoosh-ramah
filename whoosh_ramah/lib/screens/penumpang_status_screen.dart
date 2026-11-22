@@ -6,12 +6,17 @@ import '../data/dummy.dart';
 import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
+import '../transisi.dart';
 import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
+import '../widgets/secondary_pill_button.dart';
+import '../widgets/skeleton.dart';
 import 'keluarga_pantau_screen.dart';
+import 'penumpang_tiket_screen.dart';
 import 'segera_hadir_screen.dart';
 
-/// Layar 3 — Status pendampingan penumpang (design/Penumpang-Status.dc.html).
+/// Layar 3 — Status pendampingan penumpang, gaya Brightline (kanvas putih,
+/// kartu radius 22, satu aksen merah; status selalu berikon + teks).
 ///
 /// Mendengarkan [PermintaanService.streamPermintaan] secara real-time dan
 /// menampilkan: pill status di hero, kartu petugas (muncul setelah `ditugaskan`,
@@ -38,12 +43,54 @@ class PenumpangStatusScreen extends StatefulWidget {
 
 class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
   late final PermintaanService _service = widget.service ?? PermintaanService();
-  late final Stream<Permintaan?> _stream = _service.streamPermintaan(
+  late Stream<Permintaan?> _stream = _service.streamPermintaan(
     widget.idPermintaan,
   );
 
   /// Status terakhir yang sudah diumumkan, agar hanya mengumumkan saat berubah.
   StatusPermintaan? _statusTerakhir;
+
+  /// true selama `tandaiTiba` berjalan (tombol dinonaktifkan + spinner).
+  bool _mengirimTiba = false;
+
+  /// Berlangganan ulang dokumen setelah gagal memuat (tombol "Coba lagi").
+  void _cobaLagi() {
+    setState(() {
+      _stream = _service.streamPermintaan(widget.idPermintaan);
+    });
+  }
+
+  /// Memberi tahu petugas bahwa penumpang sudah tiba di titik jemput.
+  /// Kabar ini ditulis ke Firestore (`tibaPada`) sehingga muncul di detail
+  /// tugas petugas, bukan sekadar SnackBar di HP penumpang.
+  Future<void> _tandaiTiba() async {
+    if (_mengirimTiba) return;
+    setState(() => _mengirimTiba = true);
+    try {
+      await _service.tandaiTiba(widget.idPermintaan);
+      if (!mounted) return;
+      setState(() => _mengirimTiba = false);
+      const pesan = 'Petugas sudah diberi tahu Anda tiba.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text(pesan)));
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        pesan,
+        TextDirection.ltr,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _mengirimTiba = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memberi tahu petugas. Silakan coba lagi.'),
+          ),
+        );
+    }
+  }
 
   /// Label tiap langkah timeline; langkah terakhir memakai `stasiunTujuan`.
   static String _labelLangkah(StatusPermintaan s, Permintaan p) {
@@ -96,25 +143,25 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
       case StatusPermintaan.ditugaskan:
         return (
           label: 'Petugas sudah ditugaskan',
-          color: AppColors.greenFamily,
+          color: AppColors.redText,
           icon: Icons.check,
         );
       case StatusPermintaan.bertemu:
         return (
           label: 'Petugas menuju Anda',
-          color: AppColors.greenFamily,
+          color: AppColors.redText,
           icon: Icons.check,
         );
       case StatusPermintaan.diKursi:
         return (
           label: 'Anda sudah di kursi',
-          color: AppColors.greenFamily,
+          color: AppColors.redText,
           icon: Icons.check,
         );
       case StatusPermintaan.selesai:
         return (
           label: 'Pendampingan selesai',
-          color: AppColors.greenFamily,
+          color: AppColors.redText,
           icon: Icons.check,
         );
     }
@@ -135,10 +182,10 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
     if (nav.canPop()) {
       nav.pop(); // kembali ke layar tiket (layar pesan sudah di-replace)
     } else {
+      // Dibuka tanpa tumpukan rute (mis. dari notifikasi): tetap ke layar tiket
+      // sungguhan, bukan layar placeholder.
       nav.pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const SegeraHadirScreen(title: 'Tiket'),
-        ),
+        TransisiHalaman.masuk(halaman: const PenumpangTiketScreen()),
       );
     }
   }
@@ -173,6 +220,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
               return _layarPesan(
                 _hero(null),
                 'Gagal memuat status. Periksa koneksi Anda.',
+                onRetry: _cobaLagi,
               );
             }
             final p = snapshot.data;
@@ -180,7 +228,11 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return _layarPesan(_hero(null), null, loading: true);
               }
-              return _layarPesan(_hero(null), 'Permintaan tidak ditemukan.');
+              return _layarPesan(
+                _hero(null),
+                'Permintaan tidak ditemukan.',
+                onRetry: _cobaLagi,
+              );
             }
             _umumkanBilaBerubah(p.status);
             return SingleChildScrollView(
@@ -189,22 +241,10 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _hero(p),
-                  // Seluruh isi di bawah hero digeser naik 52px agar kartu petugas
-                  // menumpuk hero (setara `margin: -52px 18px 0` di design; Flutter
-                  // melarang margin/padding negatif pada Container/Padding).
-                  Transform.translate(
-                    offset: const Offset(0, -52),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _kartuPetugas(p),
-                        _kartuTimeline(p),
-                        const SizedBox(height: 16),
-                        _tombolBawah(p),
-                      ],
-                    ),
-                  ),
+                  _kartuPetugas(p),
+                  _kartuTimeline(p),
+                  const SizedBox(height: 16),
+                  _tombolBawah(p),
                 ],
               ),
             );
@@ -217,9 +257,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
   /// Hero: tombol kembali + judul (+ pill status bila data tersedia).
   Widget _hero(Permintaan? p) {
     return HeroHeader(
-      color: AppColors.pinkHero,
-      borderRadius: 40,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 70),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -233,8 +271,8 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
                   child: const Text(
                     'Pendampingan Anda',
                     style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
                       color: AppColors.textPrimary,
                     ),
@@ -245,15 +283,38 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
           ),
           if (p != null) ...[
             const SizedBox(height: 14),
-            _StatusPill(ringkasan: _ringkasan(p.status)),
+            // Pill status berganti dengan fade + scale kecil setiap kali status
+            // maju, sehingga perubahan terasa sebagai kejadian, bukan kedipan.
+            AnimatedSwitcher(
+              duration: durasiGerak(context),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.92, end: 1).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: _StatusPill(
+                key: ValueKey<StatusPermintaan>(p.status),
+                ringkasan: _ringkasan(p.status),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  /// Kerangka untuk state loading / error / tidak ditemukan: hero + pesan di tengah.
-  Widget _layarPesan(Widget hero, String? pesan, {bool loading = false}) {
+  /// Kerangka untuk state loading / error / tidak ditemukan: hero + pesan di
+  /// tengah, plus tombol "Coba lagi" bila [onRetry] diberikan.
+  Widget _layarPesan(
+    Widget hero,
+    String? pesan, {
+    bool loading = false,
+    VoidCallback? onRetry,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -261,17 +322,36 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
         Expanded(
           child: Center(
             child: loading
-                ? const CircularProgressIndicator()
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+                    child: Skeleton(
+                      label: 'Memuat status pendampingan',
+                      child: const SkeletonRincian(jumlahBaris: 4),
+                    ),
+                  )
                 : Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(
-                      pesan ?? '',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          pesan ?? '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (onRetry != null) ...[
+                          const SizedBox(height: 16),
+                          SecondaryPillButton(
+                            onPressed: onRetry,
+                            label: 'Coba lagi',
+                            height: 52,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
           ),
@@ -280,7 +360,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
     );
   }
 
-  /// Kartu petugas (menumpuk hero). Sebelum `ditugaskan`: "Mencari petugas…".
+  /// Kartu petugas. Sebelum `ditugaskan`: "Mencari petugas…".
   Widget _kartuPetugas(Permintaan p) {
     final sudahDitugaskan = p.status != StatusPermintaan.menunggu;
     return Container(
@@ -288,10 +368,41 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.cardLarge),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.card,
       ),
-      child: sudahDitugaskan ? _isiKartuPetugas(p) : _mencariPetugas(),
+      child: AnimatedSize(
+        duration: durasiGerak(context),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: durasiGerak(context),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.06),
+                end: Offset.zero,
+              ).animate(anim),
+              child: child,
+            ),
+          ),
+          // Saat petugas ditemukan, kartu "Mencari petugas…" berganti menjadi
+          // kartu petugas sungguhan dengan tinggi yang ikut beranimasi.
+          child: sudahDitugaskan
+              ? KeyedSubtree(
+                  key: const ValueKey<String>('petugas'),
+                  child: _isiKartuPetugas(p),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey<String>('mencari'),
+                  child: _mencariPetugas(),
+                ),
+        ),
+      ),
     );
   }
 
@@ -302,7 +413,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
           width: 58,
           height: 58,
           decoration: const BoxDecoration(
-            color: AppColors.innerGray,
+            color: AppColors.block,
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -350,7 +461,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
               width: 58,
               height: 58,
               decoration: const BoxDecoration(
-                color: AppColors.pinkHero,
+                color: AppColors.redSoft,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -358,7 +469,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
                 _inisial(nama),
                 style: const TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.redText,
                 ),
               ),
@@ -373,7 +484,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
                     nama,
                     style: const TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -395,7 +506,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.innerGray,
+            color: AppColors.block,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
@@ -415,7 +526,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
                 lokasi,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
                 ),
               ),
@@ -459,6 +570,7 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.cardSoft,
       ),
       child: Column(
@@ -487,17 +599,18 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CtaUtama(
-            label: 'Saya sudah sampai di lobi',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Terima kasih, petugas sudah diberi tahu.'),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
+          // Setelah selesai, tombol tiba tidak relevan lagi.
+          if (!p.sudahSelesai) ...[
+            if (p.sudahTiba)
+              _KabarTiba(waktu: p.tibaPada!)
+            else
+              _CtaUtama(
+                label: 'Saya sudah sampai di lobi',
+                loading: _mengirimTiba,
+                onTap: _tandaiTiba,
+              ),
+            const SizedBox(height: 10),
+          ],
           _TombolGaris(
             label: 'Bagikan ke keluarga',
             icon: Icons.share,
@@ -512,14 +625,14 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
   /// Membuka layar pantau keluarga (layar 7).
   void _bagikanKeKeluarga() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const KeluargaPantauScreen()),
+      TransisiHalaman.masuk(halaman: const KeluargaPantauScreen()),
     );
   }
 
   void _segeraHadir(String judul) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => SegeraHadirScreen(title: judul)));
+    Navigator.of(context).push(
+      TransisiHalaman.masuk(halaman: SegeraHadirScreen(title: judul)),
+    );
   }
 
   /// Inisial untuk avatar: huruf pertama tiap kata (maks 2), atau 2 huruf pertama.
@@ -540,9 +653,10 @@ class _PenumpangStatusScreenState extends State<PenumpangStatusScreen> {
 
 enum _StepState { lewati, aktif, berikutnya }
 
-/// Pill status di hero (ikon + label, warna mengikuti status).
+/// Pill status di header (ikon + label, warna mengikuti status). Latar abu
+/// blok agar terlihat di kanvas putih; status tidak pernah hanya warna.
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.ringkasan});
+  const _StatusPill({super.key, required this.ringkasan});
 
   final ({String label, Color color, IconData icon}) ringkasan;
 
@@ -554,7 +668,7 @@ class _StatusPill extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 40),
         padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.block,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -610,15 +724,31 @@ class _TimelineStep extends StatelessWidget {
           width: 24,
           child: Column(
             children: [
-              _penanda(),
+              // Penanda langkah "melompat" kecil saat status maju: centang
+              // menggantikan lingkaran, bukan sekadar bertukar gambar.
+              AnimatedSwitcher(
+                duration: durasiGerak(context),
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, anim) => ScaleTransition(
+                  scale: anim,
+                  child: FadeTransition(opacity: anim, child: child),
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey<_StepState>(state),
+                  child: _penanda(),
+                ),
+              ),
               if (!isLast)
-                Container(
+                AnimatedContainer(
+                  duration: durasiGerak(context),
+                  curve: Curves.easeOutCubic,
                   width: 3,
                   height: 18,
                   margin: const EdgeInsets.symmetric(vertical: 2),
                   decoration: BoxDecoration(
                     color: state == _StepState.lewati
-                        ? AppColors.greenFamily
+                        ? AppColors.redPrimary
                         : AppColors.connector,
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -660,7 +790,7 @@ class _TimelineStep extends StatelessWidget {
           width: 24,
           height: 24,
           decoration: const BoxDecoration(
-            color: AppColors.greenFamily,
+            color: AppColors.redPrimary,
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.check, size: 16, color: Colors.white),
@@ -690,7 +820,7 @@ class _TimelineStep extends StatelessWidget {
           height: 24,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: _abuLingkaran, width: 3),
+            border: Border.all(color: AppColors.outlineControl, width: 3),
           ),
         );
     }
@@ -712,7 +842,7 @@ class _TimelineStep extends StatelessWidget {
           '$label · sekarang',
           style: const TextStyle(
             fontSize: 15,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
             color: AppColors.redText,
           ),
         );
@@ -728,9 +858,6 @@ class _TimelineStep extends StatelessWidget {
     }
   }
 }
-
-/// Warna abu-abu lingkaran langkah berikutnya (#C9CDD6 pada design).
-const Color _abuLingkaran = Color(0xFFC9CDD6);
 
 /// Tombol garis (outline) dengan ikon + label.
 class _TombolGaris extends StatelessWidget {
@@ -759,7 +886,7 @@ class _TombolGaris extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(height / 2),
-              border: Border.all(color: AppColors.outline, width: 2),
+              border: Border.all(color: AppColors.outlineControl, width: 2),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -773,7 +900,7 @@ class _TombolGaris extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -787,47 +914,104 @@ class _TombolGaris extends StatelessWidget {
   }
 }
 
-/// Tombol utama merah dengan bayangan (CTA "Saya sudah sampai di lobi").
+/// Kabar bahwa penumpang sudah tiba (menggantikan CTA setelah berhasil).
+class _KabarTiba extends StatelessWidget {
+  const _KabarTiba({required this.waktu});
+
+  final DateTime waktu;
+
+  @override
+  Widget build(BuildContext context) {
+    final jam = DateFormat('HH.mm').format(waktu);
+    return Semantics(
+      label: 'Petugas sudah diberi tahu Anda tiba pukul $jam',
+      child: ExcludeSemantics(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 60),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.redSoft,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: AppColors.redPrimary, width: 2),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.check_circle,
+                size: 22,
+                color: AppColors.redText,
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Petugas sudah diberi tahu · $jam',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.redText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tombol utama merah (CTA "Saya sudah sampai di lobi"), pil 56 gaya
+/// Brightline tanpa bayangan berwarna.
 class _CtaUtama extends StatelessWidget {
-  const _CtaUtama({required this.label, required this.onTap});
+  const _CtaUtama({
+    required this.label,
+    required this.onTap,
+    this.loading = false,
+  });
 
   final String label;
   final VoidCallback onTap;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: label,
-      onTap: onTap,
+      enabled: !loading,
+      label: loading ? 'Mengirim kabar ke petugas' : label,
+      onTap: loading ? null : onTap,
       child: ExcludeSemantics(
         child: GestureDetector(
-          onTap: onTap,
+          onTap: loading ? null : onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 60),
+            constraints: const BoxConstraints(minHeight: 56),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.redPrimary,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x47E11D2E),
-                  blurRadius: 22,
-                  offset: Offset(0, 10),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
             child: Center(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
+              child: loading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ),
         ),

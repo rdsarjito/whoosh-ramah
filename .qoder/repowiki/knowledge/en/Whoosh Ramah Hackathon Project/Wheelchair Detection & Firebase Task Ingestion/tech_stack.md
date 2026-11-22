@@ -1,0 +1,1 @@
+OpenCV for video I/O, Ultralytics YOLOv8 / YOLO-World for object detection, Roboflow Inference SDK for remote models, firebase-admin for Firestore writes, python-dotenv for configuration.

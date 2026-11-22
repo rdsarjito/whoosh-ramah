@@ -1,0 +1,5 @@
+- Runtime knobs are exposed as environment variables read through `os.getenv(..., default)` at module top-level, grouped under a comment block labeled "Pengaturan".
+- Each supported model implements the same interface — an `__init__` and a `deteksi(self, frame)` method returning a list of `(class_name, confidence, x1, y1, x2, y2)` tuples — so the caller never branches on model type.
+- Heavy third-party imports (`inference_sdk`, `ultralytics`, `firebase_admin`) are deferred inside `__init__`/methods rather than imported at module level, keeping startup fast and failures localized.
+- Missing prerequisites abort execution with `raise SystemExit(...)` carrying a human-readable message pointing the user at the relevant `.env` variable or README step.
+- Detection results are filtered against `KELAS_TARGET` (lowercased) plus `AMBANG_KEYAKINAN` both when drawing bounding boxes and when deciding whether to emit a Firebase task.

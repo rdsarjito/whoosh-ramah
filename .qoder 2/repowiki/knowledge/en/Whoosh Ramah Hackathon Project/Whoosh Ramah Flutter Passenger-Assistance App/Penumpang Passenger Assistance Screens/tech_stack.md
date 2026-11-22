@@ -1,0 +1,1 @@
+Flutter with the internal `material_ui` package (custom Material theme), `intl` for time formatting, and Firestore-backed `PermintaanService` for async request creation and real-time streaming.

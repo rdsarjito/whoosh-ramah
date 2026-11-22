@@ -5,10 +5,10 @@ void main() {
   testWidgets('Langkah 3: layar pilih peran tampil sebagai layar awal', (tester) async {
     await tester.pumpWidget(const WhooshRamahApp());
 
-    // Judul hero + tiga kartu peran.
-    expect(find.text('Perjalanan nyaman untuk semua penumpang'), findsOneWidget);
+    // Judul hero + tiga kartu peran (copy contoh Brightline).
+    expect(find.text('Perjalanan nyaman, untuk semua.'), findsOneWidget);
     expect(find.text('Penumpang'), findsOneWidget);
-    expect(find.text('Petugas stasiun'), findsOneWidget);
+    expect(find.text('Petugas'), findsOneWidget);
     expect(find.text('Keluarga'), findsOneWidget);
   });
 }

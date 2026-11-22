@@ -1,0 +1,6 @@
+- Screens expose an optional `PermintaanService? service` constructor parameter so tests can inject a mock; when absent, the service is lazily constructed on first use rather than at build time.
+- Each screen wraps its body in `Scaffold` + `SafeArea(top: false)` and uses `HeroHeader` with `AppColors.pinkHero` for the top banner, keeping header styling consistent across the flow.
+- Navigation between screens uses `Navigator.of(context).push(MaterialPageRoute(...))` for forward steps and `pushReplacement` when the previous screen should be removed from the stack (pesan → status).
+- Interactive cards and buttons are wrapped in `Semantics(button: true, label: ...)` paired with `ExcludeSemantics` around their visual children to keep TalkBack announcements clean.
+- Cards that need to overlap the hero banner use `Transform.translate(offset: Offset(0, -N))` instead of negative margins, as noted in inline comments explaining the Flutter constraint workaround.
+- Local helper widgets are declared as private classes prefixed with underscore (`_Heading`, `_ChoiceBox`, `_TimelineStep`, `_TombolGaris`, `_TimePoint`, etc.) inside the same file rather than extracted to shared components.

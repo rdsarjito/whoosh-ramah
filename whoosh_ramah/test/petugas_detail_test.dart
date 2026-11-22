@@ -24,10 +24,29 @@ class _FakeDetailService extends PermintaanService {
   }
 }
 
+/// Langganan pertama gagal (atau kosong), berikutnya berhasil — menguji
+/// tombol "Coba lagi" pada state error maupun "tidak ditemukan".
+class _GagalLaluPulihService extends PermintaanService {
+  _GagalLaluPulihService(this.doc, {this.gagalPertama = true});
+
+  final Permintaan? doc;
+  final bool gagalPertama;
+  int langganan = 0;
+
+  @override
+  Stream<Permintaan?> streamPermintaan(String id) {
+    langganan++;
+    if (langganan > 1) return Stream<Permintaan?>.value(doc);
+    if (gagalPertama) return Stream<Permintaan?>.error(Exception('offline'));
+    return Stream<Permintaan?>.value(null);
+  }
+}
+
 Permintaan _aplikasi({
   String nama = 'Siti Aminah',
   StatusPermintaan status = StatusPermintaan.diKursi,
   String? catatan,
+  DateTime? tibaPada,
 }) =>
     Permintaan(
       id: 'app1',
@@ -42,6 +61,7 @@ Permintaan _aplikasi({
       kursi: '7A',
       stasiunTujuan: 'Tegalluar',
       catatan: catatan,
+      tibaPada: tibaPada,
       dibuatPada: DateTime.now(),
       diperbaruiPada: DateTime.now(),
     );
@@ -157,5 +177,56 @@ void main() {
     await tester.pump();
 
     expect(find.text('Gagal memperbarui status. Silakan coba lagi.'), findsOneWidget);
+  });
+
+  testWidgets('Tier 1 A1: petugas melihat kabar penumpang sudah tiba + jamnya', (tester) async {
+    await buka(
+      tester,
+      _FakeDetailService(
+        doc: _aplikasi(
+          status: StatusPermintaan.ditugaskan,
+          tibaPada: DateTime(2026, 11, 22, 7, 50),
+        ),
+      ),
+      'app1',
+    );
+
+    expect(find.text('Penumpang sudah tiba di titik jemput · 07.50'), findsOneWidget);
+  });
+
+  testWidgets('Tier 1 A1: tanpa tibaPada, kabar tiba tidak muncul', (tester) async {
+    await buka(tester, _FakeDetailService(doc: _aplikasi()), 'app1');
+
+    expect(find.textContaining('Penumpang sudah tiba di titik jemput'), findsNothing);
+  });
+
+  testWidgets('Tier 1 B2: gagal memuat -> "Coba lagi" berlangganan ulang lalu pulih', (tester) async {
+    final service = _GagalLaluPulihService(_aplikasi());
+    await buka(tester, service, 'app1');
+
+    expect(find.text('Gagal memuat tugas. Periksa koneksi Anda.'), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
+    expect(service.langganan, 1);
+
+    await tester.tap(find.text('Coba lagi'));
+    await tester.pumpAndSettle();
+
+    expect(service.langganan, 2);
+    expect(find.text('Gagal memuat tugas. Periksa koneksi Anda.'), findsNothing);
+    expect(find.text('Siti Aminah'), findsOneWidget);
+  });
+
+  testWidgets('Tier 1 B2: tugas tidak ditemukan juga punya "Coba lagi"', (tester) async {
+    final service = _GagalLaluPulihService(_aplikasi(), gagalPertama: false);
+    await buka(tester, service, 'app1');
+
+    expect(find.text('Tugas tidak ditemukan.'), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
+
+    await tester.tap(find.text('Coba lagi'));
+    await tester.pumpAndSettle();
+    expect(service.langganan, 2);
+    expect(find.text('Tugas tidak ditemukan.'), findsNothing);
+    expect(find.text('Siti Aminah'), findsOneWidget);
   });
 }

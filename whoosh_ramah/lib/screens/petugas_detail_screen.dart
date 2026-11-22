@@ -1,16 +1,18 @@
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 
 import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
+import '../transisi.dart';
 import '../widgets/hero_back_button.dart';
 import '../widgets/hero_header.dart';
+import '../widgets/secondary_pill_button.dart';
+import '../widgets/skeleton.dart';
 import 'segera_hadir_screen.dart';
 
-/// Warna cincin abu-abu langkah yang belum dikerjakan (design: #C9CDD6).
-const Color _abuLingkaran = Color(0xFFC9CDD6);
-
-/// Layar 6 — Detail tugas petugas (design/Petugas-Detail.dc.html).
+/// Layar 6 — Detail tugas petugas, gaya Brightline (kanvas putih, kartu
+/// radius 22, stepper merah, satu tombol aksi merah merek).
 ///
 /// Mendengarkan satu dokumen. Menampilkan info penumpang (atau "Penumpang belum
 /// diketahui" + lokasi & keyakinan untuk tugas kamera AI), stepper 5 status,
@@ -29,10 +31,17 @@ class PetugasDetailScreen extends StatefulWidget {
 
 class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
   late final PermintaanService _service = widget.service ?? PermintaanService();
-  late final Stream<Permintaan?> _stream = _service.streamPermintaan(widget.idPermintaan);
+  late Stream<Permintaan?> _stream = _service.streamPermintaan(widget.idPermintaan);
 
   /// true selama `majukanStatus` berjalan (tombol dinonaktifkan + spinner).
   bool _loading = false;
+
+  /// Berlangganan ulang dokumen setelah gagal memuat (tombol "Coba lagi").
+  void _cobaLagi() {
+    setState(() {
+      _stream = _service.streamPermintaan(widget.idPermintaan);
+    });
+  }
 
   Future<void> _majukan() async {
     setState(() => _loading = true);
@@ -68,19 +77,36 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                   Expanded(
                     child: Center(
                       child: loading
-                          ? const CircularProgressIndicator()
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+                              child: Skeleton(
+                                label: 'Memuat detail tugas',
+                                child: const SkeletonRincian(jumlahBaris: 4),
+                              ),
+                            )
                           : Padding(
                               padding: const EdgeInsets.all(24),
-                              child: Text(
-                                snapshot.hasError
-                                    ? 'Gagal memuat tugas. Periksa koneksi Anda.'
-                                    : 'Tugas tidak ditemukan.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textSecondary,
-                                ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    snapshot.hasError
+                                        ? 'Gagal memuat tugas. Periksa koneksi Anda.'
+                                        : 'Tugas tidak ditemukan.',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SecondaryPillButton(
+                                    onPressed: _cobaLagi,
+                                    label: 'Coba lagi',
+                                    height: 52,
+                                  ),
+                                ],
                               ),
                             ),
                     ),
@@ -97,18 +123,8 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _hero(p),
-                        // Kartu menumpuk hero 44px (setara `margin: -44px 18px 0`
-                        // di design; Flutter melarang margin negatif).
-                        Transform.translate(
-                          offset: const Offset(0, -44),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _kartuInfo(p),
-                              _kartuStatus(p),
-                            ],
-                          ),
-                        ),
+                        _kartuInfo(p),
+                        _kartuStatus(p),
                       ],
                     ),
                   ),
@@ -122,12 +138,10 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
     );
   }
 
-  /// Hero biru: tombol kembali + judul + badge sumber (bila data tersedia).
+  /// Header putih: tombol kembali + judul + badge sumber (bila data tersedia).
   Widget _hero(Permintaan? p) {
     return HeroHeader(
-      color: AppColors.blueHero,
-      borderRadius: 36,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 64),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Row(
         children: [
           HeroBackButton(
@@ -141,8 +155,8 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
               child: const Text(
                 'Detail tugas',
                 style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
                   color: AppColors.textPrimary,
                 ),
@@ -168,7 +182,8 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.cardLarge),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.card,
       ),
       child: Column(
@@ -185,7 +200,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                   children: [
                     Text(
                       nama,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 4),
                     Align(
@@ -194,7 +209,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                         height: 26,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.pinkHero,
+                          color: AppColors.redSoft,
                           borderRadius: BorderRadius.circular(13),
                         ),
                         child: Row(
@@ -202,7 +217,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
                           children: [
                             Text(
                               p.jenisBantuan.label,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.redText),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.redText),
                             ),
                           ],
                         ),
@@ -215,26 +230,31 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
           ),
           const SizedBox(height: 14),
           _kisiInfo(_tiles(p)),
+          // Kabar nyata dari penumpang: ia sudah tiba di titik jemput.
+          if (p.sudahTiba) ...[
+            const SizedBox(height: 14),
+            _KabarTiba(waktu: p.tibaPada!),
+          ],
           if (catatan != null && catatan.isNotEmpty) ...[
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.noteYellow,
+                color: AppColors.block,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text.rich(
                 TextSpan(
                   children: [
-                    const TextSpan(text: 'Catatan: ', style: TextStyle(fontWeight: FontWeight.w900)),
+                    const TextSpan(text: 'Catatan: ', style: TextStyle(fontWeight: FontWeight.w800)),
                     TextSpan(text: catatan),
                   ],
                 ),
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   height: 1.45,
-                  color: AppColors.noteYellowText,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -320,6 +340,7 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.cardSoft,
       ),
       child: Column(
@@ -329,9 +350,9 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
             'STATUS PENDAMPINGAN',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: AppColors.redText,
             ),
           ),
           const SizedBox(height: 10),
@@ -358,17 +379,17 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
         children: [
           if (selesai)
             Container(
-              constraints: const BoxConstraints(minHeight: 60),
+              constraints: const BoxConstraints(minHeight: 56),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.greenHero,
-                borderRadius: BorderRadius.circular(30),
+                color: AppColors.redSoft,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
               alignment: Alignment.center,
               child: const Text(
                 'Tugas selesai · terima kasih!',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.greenFamily),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.redText),
               ),
             )
           else
@@ -389,7 +410,9 @@ class _PetugasDetailScreenState extends State<PetugasDetailScreen> {
   }
 
   void _segeraHadir(String judul) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => SegeraHadirScreen(title: judul)));
+    Navigator.of(context).push(
+      TransisiHalaman.masuk(halaman: SegeraHadirScreen(title: judul)),
+    );
   }
 }
 
@@ -452,7 +475,7 @@ class _StepRow extends StatelessWidget {
         return Container(
           width: 28,
           height: 28,
-          decoration: const BoxDecoration(color: AppColors.greenFamily, shape: BoxShape.circle),
+          decoration: const BoxDecoration(color: AppColors.redPrimary, shape: BoxShape.circle),
           child: const Icon(Icons.check, size: 16, color: Colors.white),
         );
       case _StepState.current:
@@ -461,13 +484,13 @@ class _StepRow extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.blueOfficer, width: 4),
+            border: Border.all(color: AppColors.redPrimary, width: 4),
           ),
           child: Center(
             child: Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(color: AppColors.blueOfficer, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: AppColors.redPrimary, shape: BoxShape.circle),
             ),
           ),
         );
@@ -477,7 +500,7 @@ class _StepRow extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: _abuLingkaran, width: 3),
+            border: Border.all(color: AppColors.outlineControl, width: 3),
           ),
         );
     }
@@ -493,7 +516,7 @@ class _StepRow extends StatelessWidget {
       case _StepState.current:
         return Text(
           '$label · sekarang',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.blueOfficer),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.redText),
         );
       case _StepState.todo:
         return Text(
@@ -516,19 +539,20 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 56,
       height: 56,
-      decoration: const BoxDecoration(color: AppColors.pinkHero, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: AppColors.redSoft, shape: BoxShape.circle),
       alignment: Alignment.center,
       child: dariKamera
           ? const Icon(Icons.photo_camera, size: 26, color: AppColors.redText)
           : Text(
               _inisial(nama),
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.redText),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.redText),
             ),
     );
   }
 }
 
-/// Badge sumber di hero: "Aplikasi" (biru) / "Kamera AI" (merah).
+/// Badge sumber di header: "Aplikasi" (tinta) / "Kamera AI" (merah teks),
+/// keduanya di atas chip abu blok.
 class _BadgeSumber extends StatelessWidget {
   const _BadgeSumber({required this.dariKamera});
 
@@ -539,14 +563,56 @@ class _BadgeSumber extends StatelessWidget {
     return Container(
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(color: AppColors.block, borderRadius: BorderRadius.circular(15)),
       alignment: Alignment.center,
       child: Text(
         dariKamera ? 'Kamera AI' : 'Aplikasi',
         style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w900,
-          color: dariKamera ? AppColors.redText : AppColors.blueOfficer,
+          fontWeight: FontWeight.w800,
+          color: dariKamera ? AppColors.redText : AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+/// Kabar kedatangan penumpang: merah muda + ikon centang + teks (tidak hanya warna).
+class _KabarTiba extends StatelessWidget {
+  const _KabarTiba({required this.waktu});
+
+  final DateTime waktu;
+
+  @override
+  Widget build(BuildContext context) {
+    final jam = DateFormat('HH.mm').format(waktu);
+    return Semantics(
+      label: 'Penumpang sudah tiba di titik jemput pukul $jam',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.redSoft,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.redPrimary, width: 2),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.check_circle, size: 22, color: AppColors.redText),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Penumpang sudah tiba di titik jemput · $jam',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                    color: AppColors.redText,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -564,7 +630,7 @@ class _InfoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: AppColors.innerGray, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: AppColors.block, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -576,7 +642,7 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -603,14 +669,14 @@ class _TombolGaris extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.outline, width: 2),
+              border: Border.all(color: AppColors.outlineControl, width: 2),
             ),
             alignment: Alignment.center,
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
             ),
           ),
         ),
@@ -619,7 +685,7 @@ class _TombolGaris extends StatelessWidget {
   }
 }
 
-/// Tombol aksi utama biru (memajukan status).
+/// Tombol aksi utama merah merek (memajukan status), pil 56 gaya Brightline.
 class _TombolAksi extends StatelessWidget {
   const _TombolAksi({required this.label, required this.loading, required this.onPressed});
 
@@ -641,14 +707,13 @@ class _TombolAksi extends StatelessWidget {
           onTap: onPressed,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 60),
+            constraints: const BoxConstraints(minHeight: 56),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.blueOfficer.withValues(alpha: loading ? 0.6 : 1),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [
-                BoxShadow(color: Color(0x401E50C8), blurRadius: 22, offset: Offset(0, 10)),
-              ],
+              // Saat memuat, nada diredam (bukan alpha) agar spinner putih
+              // tetap terlihat jelas — WCAG 1.4.11.
+              color: loading ? AppColors.redDisabled : AppColors.redPrimary,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
             alignment: Alignment.center,
             child: loading
@@ -660,7 +725,7 @@ class _TombolAksi extends StatelessWidget {
                 : Text(
                     label,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
                   ),
           ),
         ),

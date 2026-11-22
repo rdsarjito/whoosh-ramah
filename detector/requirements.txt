@@ -4,3 +4,5 @@ firebase-admin>=6.4
 inference-sdk>=0.20
 # Untuk Jalan B (model lokal). Boleh dilewati kalau hanya pakai Roboflow.
 ultralytics>=8.2
+# Tracker ByteTrack (model.track) butuh lap; tanpa ini ultralytics mengunduh sendiri.
+lap>=0.5.12

@@ -1,74 +1,90 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Palet warna gaya "Cerah & ramah" (PROJECT.md bagian 7).
+/// Palet gaya Brightline (paket `whoosh-ramah-gaya-baru`): kanvas putih, satu
+/// aksen merah merek, tinta hampir hitam, dan abu blok untuk kartu sekunder.
 ///
-/// Nama warna mengikuti perannya di desain: merah untuk penumpang, biru untuk
-/// petugas, hijau untuk keluarga/sukses.
+/// Tidak ada lagi hero berwarna per peran: pembeda peran adalah eyebrow +
+/// ikon, bukan warna latar. Status tidak pernah hanya warna (selalu ada teks
+/// dan/atau ikon centang).
 class AppColors {
   AppColors._();
 
   // Dasar
-  static const Color background = Color(0xFFF5F6FA); // Latar semua layar
-  static const Color textPrimary = Color(0xFF1F2430); // Teks utama
-  static const Color textSecondary = Color(0xFF5F6574); // Keterangan
+  static const Color background = Color(0xFFFFFFFF); // Kanvas semua layar
+  static const Color textPrimary = Color(0xFF111318); // Tinta utama (18.7:1)
+  static const Color textSecondary = Color(0xFF4B5260); // Keterangan (7.9:1)
 
-  // Penumpang (merah)
-  static const Color redPrimary = Color(0xFFE11D2E); // Tombol utama, badge Kamera AI
-  static const Color redText = Color(0xFFB00E28); // Teks merah di atas merah muda
-  static const Color pinkHero = Color(0xFFFFE4E8); // Header penumpang, chip terpilih
+  /// Abu netral untuk footer/eyebrow sekunder (4.8:1 di atas putih — cukup
+  /// untuk teks 13px sekaligus batas komponen WCAG 1.4.11).
+  static const Color textMuted = Color(0xFF6B7280);
 
-  // Petugas (biru)
-  static const Color blueOfficer = Color(0xFF1E50C8); // Tombol & aksen petugas
-  static const Color blueHero = Color(0xFFE3ECFF); // Header petugas
+  // Merek (merah)
+  static const Color redPrimary = Color(0xFFE11D2E); // Tombol utama, kartu peran
+  static const Color redText = Color(0xFFB00E28); // Teks merah di atas putih (7.1:1)
 
-  // Keluarga / sukses (hijau)
-  static const Color greenFamily = Color(0xFF17663F); // Tombol keluarga, status selesai
-  static const Color greenHero = Color(0xFFE3F4EA); // Header keluarga
+  /// Merah sangat muda untuk latar kotak terpilih / chip aktif. Dipakai bersama
+  /// garis merah 2px + badge centang, jadi terpilih tidak hanya lewat warna.
+  static const Color redSoft = Color(0xFFFDEDEE);
 
-  // Pendukung
-  static const Color innerGray = Color(0xFFF3F4F8); // Kotak info di dalam kartu
-  static const Color noteYellow = Color(0xFFFFF3D6); // Latar catatan penumpang
-  static const Color noteYellowText = Color(0xFF5C3D00); // Teks catatan penumpang
-  static const Color outline = Color(0xFFE4E6EE); // Garis tombol sekunder
-  static const Color outlineSoft = Color(0xFFE6E8EF); // Garis kotak pilihan
-  static const Color connector = Color(0xFFE1E4EA); // Garis timeline yang belum aktif
+  /// Abu blok: kartu sekunder, kotak info, latar ikon, kerangka skeleton.
+  static const Color block = Color(0xFFF2F3F5);
+
+  /// Garis pemisah dekoratif (kartu, header, lembar). Bukan batas komponen.
+  static const Color outline = Color(0xFFE5E7EB);
+
+  /// Garis komponen interaktif (tombol sekunder, kotak pilihan, lingkaran
+  /// timeline yang belum aktif). WCAG 1.4.11 meminta >= 3:1 terhadap latar;
+  /// #6B7280 = 4.8:1 di atas putih maupun di atas [block] terang.
+  /// [outline] tetap untuk pemisah dekoratif yang tidak menandai batas komponen.
+  static const Color outlineControl = Color(0xFF6B7280);
+
+  /// Garis penghubung timeline yang belum aktif — sama dengan batas komponen.
+  static const Color connector = outlineControl;
+
+  /// Latar tombol utama saat nonaktif: nada merah diredam ke abu gelap supaya
+  /// teks putih tetap >= 4.5:1 (WCAG 1.4.3). Hasil #8E394A = 7.4:1.
+  static final Color redDisabled = redam(redPrimary);
+
+  /// Warna tombol nonaktif: nada [bg] diredam ke arah abu gelap (#4A5060)
+  /// sehingga tetap satu keluarga warna dengan tombol aktif, tetapi teks putih
+  /// di atasnya >= 4.5:1. Dipakai untuk merah maupun tinta.
+  static Color redam(Color bg) => Color.lerp(bg, const Color(0xFF4A5060), 0.55)!;
 }
 
-/// Radius sudut yang dipakai di seluruh layar (PROJECT.md bagian 7).
+/// Radius sudut gaya Brightline: kartu 22, kotak dalam 16, ubin logo 12.
 class AppRadius {
   AppRadius._();
 
-  static const double hero = 36; // 32–40: sudut bawah header berwarna
-  static const double card = 24; // 24–28: kartu putih utama
-  static const double cardLarge = 28;
+  static const double card = 22; // Kartu utama & kartu peran
+  static const double cardLarge = 24; // Lembar / kartu besar
   static const double inner = 16; // Kotak info di dalam kartu
-  static const double choice = 20; // 20–22: kotak pilihan (bantuan / titik jemput)
-  static const double bottomNav = 26; // Menu bawah melayang
+  static const double choice = 18; // Kotak pilihan (bantuan / titik jemput)
+  static const double tile = 12; // Ubin logo & ikon persegi membulat
   static const double pill = 999; // Tombol & badge berbentuk pil
 }
 
-/// Bayangan lembut untuk kartu (PROJECT.md bagian 7).
+/// Bayangan sangat lembut (gaya Brightline: 0 10px 26px rgba tinta 6%).
 class AppShadows {
   AppShadows._();
 
-  /// Kartu putih utama: blur 34, y 14, opacity 10%.
+  /// Kartu putih utama / lembar melayang.
   static const List<BoxShadow> card = [
-    BoxShadow(color: Color(0x1A1F2430), blurRadius: 34, offset: Offset(0, 14)),
+    BoxShadow(color: Color(0x0F111318), blurRadius: 26, offset: Offset(0, 10)),
   ];
 
-  /// Kartu dalam / sekunder: blur 22, y 8, opacity ±6%.
+  /// Kartu dalam / sekunder: lebih tipis lagi.
   static const List<BoxShadow> cardSoft = [
-    BoxShadow(color: Color(0x0F1F2430), blurRadius: 22, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x0A111318), blurRadius: 18, offset: Offset(0, 6)),
   ];
 }
 
-/// Tema aplikasi: warna, font Nunito (dibundel di assets/fonts), serta gaya
-/// tombol & kartu (bagian 7).
+/// Tema aplikasi: putih + merah merek, font Plus Jakarta Sans (dibundel di
+/// assets/fonts), serta gaya tombol & kartu gaya Brightline.
 class AppTheme {
   AppTheme._();
 
   /// Family font lokal (lihat bagian `fonts` di pubspec.yaml).
-  static const String fontFamily = 'Nunito';
+  static const String fontFamily = 'Plus Jakarta Sans';
 
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
@@ -76,7 +92,7 @@ class AppTheme {
       brightness: Brightness.light,
     ).copyWith(
       primary: AppColors.redPrimary,
-      secondary: AppColors.blueOfficer,
+      secondary: AppColors.textPrimary,
       surface: Colors.white,
       error: AppColors.redPrimary,
     );
@@ -112,50 +128,53 @@ class AppTheme {
     );
   }
 
-  /// Font Nunito dengan ukuran/berat sesuai panduan: minimum 13, teks utama
-  /// 15–17, judul 25–30, berat 600–900. Family diisi otomatis oleh
-  /// [ThemeData.fontFamily] ('Nunito').
+  /// Plus Jakarta Sans sesuai contoh Brightline: judul 42/800/-1.4, eyebrow
+  /// 12/800/+1.4, isi 17/500/1.5, judul kartu 24/800/-0.5, footer 13/600.
   static TextTheme _textTheme() {
     const primary = AppColors.textPrimary;
     const secondary = AppColors.textSecondary;
     return const TextTheme(
-      displayLarge: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: primary, height: 1.15),
-      displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: primary, height: 1.15),
-      displaySmall: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: primary, height: 1.2),
-      headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: primary),
-      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: primary),
-      titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: primary),
-      titleSmall: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
-      bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: primary, height: 1.4),
+      displayLarge: TextStyle(fontSize: 42, fontWeight: FontWeight.w800, color: primary, height: 1.04, letterSpacing: -1.4),
+      displayMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: primary, height: 1.08, letterSpacing: -1.0),
+      displaySmall: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: primary, height: 1.15, letterSpacing: -0.6),
+      headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: primary, letterSpacing: -0.5),
+      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: primary, letterSpacing: -0.3),
+      titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: primary),
+      titleSmall: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: primary),
+      bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: primary, height: 1.5),
       bodyMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: primary, height: 1.45),
-      bodySmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: secondary, height: 1.4),
-      labelLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: primary),
-      labelMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: primary),
-      labelSmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: secondary),
+      bodySmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: secondary, height: 1.4),
+      labelLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: primary),
+      labelMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: primary),
+      labelSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.redText, letterSpacing: 1.4),
     );
   }
 
-  /// Tombol utama: bentuk pil, tinggi 60–68, teks 18 tebal 900.
+  /// Tombol utama: pil merah, tinggi 56, teks 17 tebal 800.
   static ButtonStyle _primaryButton() {
     return ElevatedButton.styleFrom(
       backgroundColor: AppColors.redPrimary,
       foregroundColor: Colors.white,
-      disabledBackgroundColor: AppColors.redPrimary.withValues(alpha: 0.5),
+      // Teks putih harus tetap >= 4.5:1 saat tombol nonaktif (WCAG 1.4.3).
+      disabledBackgroundColor: AppColors.redDisabled,
+      disabledForegroundColor: Colors.white,
       elevation: 0,
-      minimumSize: const Size(0, 60),
-      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 18, fontWeight: FontWeight.w900),
+      minimumSize: const Size(0, 56),
+      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 17, fontWeight: FontWeight.w800),
       shape: const StadiumBorder(),
       tapTargetSize: MaterialTapTargetSize.padded, // Area sentuh >= 48dp (aksesibilitas)
     );
   }
 
-  /// Tombol sekunder: pil putih dengan garis 2px #E4E6EE, tinggi 46–54.
+  /// Tombol sekunder: pil putih dengan garis 2px, tinggi 52. Garis memakai
+  /// [AppColors.outlineControl] agar batas tombol terlihat (WCAG 1.4.11).
   static ButtonStyle _secondaryButton() {
     return OutlinedButton.styleFrom(
       foregroundColor: AppColors.textPrimary,
+      backgroundColor: Colors.white,
       minimumSize: const Size(0, 52),
-      side: const BorderSide(color: AppColors.outline, width: 2),
-      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.w800),
+      side: const BorderSide(color: AppColors.outlineControl, width: 2),
+      textStyle: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.w700),
       shape: const StadiumBorder(),
       tapTargetSize: MaterialTapTargetSize.padded,
     );

@@ -1,0 +1,1 @@
+Flutter with Material 3 (`useMaterial3: true`), Firebase Core via FlutterFire CLI-generated options, and the `material_ui` package (used for `MaterialApp`/`ThemeData` re-exports). Custom font `Nunito` is expected to be bundled under `assets/fonts` as referenced in `pubspec.yaml`.

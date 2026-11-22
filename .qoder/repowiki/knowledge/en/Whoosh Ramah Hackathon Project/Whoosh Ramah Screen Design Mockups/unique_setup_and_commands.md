@@ -1,0 +1,1 @@
+Open any `.dc.html` in a browser or the Kanvas designer; screens depend on the sibling `support.js` provided by the Kanvas tooling. Preview dimensions are declared per-page via `data-props='{"$preview":{"width":...,"height":...}}'`.

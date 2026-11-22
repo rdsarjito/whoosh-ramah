@@ -77,7 +77,9 @@ class RiwayatStatus {
 /// Model satu dokumen pada koleksi `permintaan_pendampingan`.
 ///
 /// Null-safe: dokumen dari detektor tidak punya `riwayat`, `diperbaruiPada`,
-/// `idPenumpang`, `kereta`, `gerbong`, `kursi`, `catatan`, dan `petugas`.
+/// `idPenumpang`, `kereta`, `gerbong`, `kursi`, `catatan`, dan `petugas`;
+/// `adaFoto` hanya ada bila cuplikan anonim berhasil ditulis detektor,
+/// `ditolakPada`/`alasanTolak` hanya ada bila petugas menolak tugas kamera.
 class Permintaan {
   const Permintaan({
     required this.id,
@@ -100,6 +102,10 @@ class Permintaan {
     this.riwayat = const <RiwayatStatus>[],
     this.dibuatPada,
     this.diperbaruiPada,
+    this.tibaPada,
+    this.adaFoto = false,
+    this.ditolakPada,
+    this.alasanTolak,
   });
 
   final String id;
@@ -123,11 +129,38 @@ class Permintaan {
   final DateTime? dibuatPada;
   final DateTime? diperbaruiPada;
 
+  /// Waktu penumpang menekan "Saya sudah sampai di lobi" (null bila belum).
+  /// Field tambahan di luar skema detektor; dokumen kamera tidak punya ini.
+  final DateTime? tibaPada;
+
+  /// true bila detektor berhasil menulis cuplikan anonim ke koleksi
+  /// `permintaan_foto/{id}` (PROJECT.md bagian 4). Tanpa field ini = tidak ada
+  /// foto; dokumen foto bisa sudah dihapus (TTL) meski `adaFoto` true.
+  final bool adaFoto;
+
+  /// Waktu petugas menekan "Bukan penumpang / tolak" (null bila belum ditolak).
+  /// Penolakan TIDAK mengubah enum `status` — tugas keluar dari daftar aktif
+  /// lewat field ini (khusus tugas kamera AI).
+  final DateTime? ditolakPada;
+
+  /// Alasan penolakan dari petugas (null bila tidak diisi).
+  final String? alasanTolak;
+
   /// true bila tugas dibuat otomatis oleh kamera AI (bukan lewat aplikasi).
   bool get dariKamera => sumber == 'kamera_ai';
 
+  /// true bila penumpang sudah memberi tahu petugas bahwa ia sudah tiba.
+  bool get sudahTiba => tibaPada != null;
+
   /// true bila pendampingan sudah selesai.
   bool get sudahSelesai => status == StatusPermintaan.selesai;
+
+  /// true bila petugas sudah menolak tugas ini (false-positive kamera AI).
+  bool get sudahDitolak => ditolakPada != null;
+
+  /// true bila tombol "Bukan penumpang / tolak" boleh ditampilkan:
+  /// tugas kamera AI yang belum selesai dan belum ditolak.
+  bool get bisaDitolak => dariKamera && !sudahSelesai && !sudahDitolak;
 
   /// Bagian setelah " - " pada [titikJemput]. Contoh tugas kamera:
   /// "Stasiun Halim - Pintu Masuk Utara" -> "Pintu Masuk Utara".
@@ -176,6 +209,10 @@ class Permintaan {
       riwayat: _riwayatDari(data['riwayat']),
       dibuatPada: (data['dibuatPada'] as Timestamp?)?.toDate(),
       diperbaruiPada: (data['diperbaruiPada'] as Timestamp?)?.toDate(),
+      tibaPada: (data['tibaPada'] as Timestamp?)?.toDate(),
+      adaFoto: data['adaFoto'] as bool? ?? false,
+      ditolakPada: (data['ditolakPada'] as Timestamp?)?.toDate(),
+      alasanTolak: data['alasanTolak'] as String?,
     );
   }
 
@@ -209,5 +246,9 @@ class Permintaan {
         'riwayat': riwayat.map((r) => r.toFirestore()).toList(),
         'dibuatPada': dibuatPada == null ? null : Timestamp.fromDate(dibuatPada!),
         'diperbaruiPada': diperbaruiPada == null ? null : Timestamp.fromDate(diperbaruiPada!),
+        'tibaPada': tibaPada == null ? null : Timestamp.fromDate(tibaPada!),
+        'adaFoto': adaFoto,
+        'ditolakPada': ditolakPada == null ? null : Timestamp.fromDate(ditolakPada!),
+        'alasanTolak': alasanTolak,
       };
 }

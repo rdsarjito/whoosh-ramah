@@ -18,6 +18,21 @@ class _FakeKeluargaService extends PermintaanService {
   Stream<Permintaan?> streamTerbaruPenumpang(String idPenumpang) => _stream;
 }
 
+/// Langganan pertama gagal, berikutnya berhasil — menguji tombol "Coba lagi".
+class _GagalLaluPulihService extends PermintaanService {
+  _GagalLaluPulihService(this._pulih);
+
+  final Permintaan? _pulih;
+  int langganan = 0;
+
+  @override
+  Stream<Permintaan?> streamTerbaruPenumpang(String idPenumpang) {
+    langganan++;
+    if (langganan == 1) return Stream<Permintaan?>.error(Exception('offline'));
+    return Stream<Permintaan?>.value(_pulih);
+  }
+}
+
 DateTime _jam(int h, int m) => DateTime(2026, 11, 22, h, m);
 
 Permintaan _siti({StatusPermintaan status = StatusPermintaan.diKursi}) => Permintaan(
@@ -46,19 +61,23 @@ Permintaan _siti({StatusPermintaan status = StatusPermintaan.diKursi}) => Permin
     );
 
 void main() {
-  Future<void> buka(WidgetTester tester, Stream<Permintaan?> stream) async {
+  Future<void> bukaDengan(WidgetTester tester, PermintaanService service) async {
     await tester.binding.setSurfaceSize(const Size(420, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: KeluargaPantauScreen(service: _FakeKeluargaService(stream)),
+        home: KeluargaPantauScreen(service: service),
       ),
     );
     // Dua pump: cukup untuk stream statis, tanpa menggantung bila stream
     // belum mengirim data (spinner animasi terus).
     await tester.pump();
     await tester.pump();
+  }
+
+  Future<void> buka(WidgetTester tester, Stream<Permintaan?> stream) async {
+    await bukaDengan(tester, _FakeKeluargaService(stream));
   }
 
   testWidgets('Langkah 7: kartu status, progres, dan riwayat terbaru di atas', (tester) async {
@@ -143,6 +162,23 @@ void main() {
       contains('Status: Penumpang sudah duduk di kursi.'),
     );
 
+    expect(find.text('Sudah duduk di Gerbong 5, Kursi 7A'), findsOneWidget);
+  });
+
+  testWidgets('Tier 1 B2: gagal memuat -> "Coba lagi" berlangganan ulang lalu pulih', (tester) async {
+    final service = _GagalLaluPulihService(_siti());
+    await bukaDengan(tester, service);
+
+    expect(find.text('Gagal memuat pantauan. Periksa koneksi Anda.'), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
+    expect(service.langganan, 1);
+
+    await tester.tap(find.text('Coba lagi'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(service.langganan, 2);
+    expect(find.text('Gagal memuat pantauan. Periksa koneksi Anda.'), findsNothing);
     expect(find.text('Sudah duduk di Gerbong 5, Kursi 7A'), findsOneWidget);
   });
 }

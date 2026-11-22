@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: whoosh_ramah_app/penumpang_flows
+title: Penumpang Passenger Assistance Screens
+scope:
+    - whoosh_ramah/lib/screens/penumpang_pesan_screen.dart
+    - whoosh_ramah/lib/screens/penumpang_status_screen.dart
+    - whoosh_ramah/lib/screens/penumpang_tiket_screen.dart
+source_files: []
+depends_on: []
+related_to: []

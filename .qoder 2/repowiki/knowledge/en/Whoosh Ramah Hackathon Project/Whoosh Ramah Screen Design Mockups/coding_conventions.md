@@ -1,0 +1,5 @@
+- Every screen is a standalone `.dc.html` file with a fixed skeleton: `<x-dc>` root, `<helmet>` for fonts/styles, a single viewport-sized container `div`, and a `text/x-dc` script block extending `DCLogic`.
+- All visual styling uses inline `style=` attributes on elements rather than external CSS, keeping each mockup self-contained.
+- Illustrations are hand-crafted inline SVGs embedded directly in the markup instead of image assets.
+- Cross-screen navigation between mockups is done with plain `<a href="*.dc.html">` links using relative paths.
+- Preview size is declared per page through the `data-props='{"$preview":{"width":...,"height":...}}'` attribute on the `text/x-dc` script tag.

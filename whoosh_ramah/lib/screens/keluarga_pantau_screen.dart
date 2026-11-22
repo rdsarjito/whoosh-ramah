@@ -6,11 +6,15 @@ import '../data/dummy.dart';
 import '../models/permintaan.dart';
 import '../services/permintaan_service.dart';
 import '../theme.dart';
+import '../transisi.dart';
 import '../widgets/ganti_peran_pill.dart';
 import '../widgets/hero_header.dart';
+import '../widgets/secondary_pill_button.dart';
+import '../widgets/skeleton.dart';
 import 'segera_hadir_screen.dart';
 
-/// Layar 7 — Pantau perjalanan (design/Keluarga-Pantau.dc.html).
+/// Layar 7 — Pantau perjalanan, gaya Brightline (kanvas putih, kartu radius
+/// 22, satu aksen merah; status selalu berupa teks, bukan hanya warna).
 ///
 /// Mendengarkan permintaan TERBARU milik `idPenumpang` demo (default
 /// `demo-siti`) lalu menampilkan kartu status saat ini, progres perjalanan, dan
@@ -33,12 +37,19 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
   late final PermintaanService _service = widget.service ?? PermintaanService();
   late final String _idPenumpang =
       widget.idPenumpang ?? DummyData.penumpang.idPenumpang;
-  late final Stream<Permintaan?> _stream = _service.streamTerbaruPenumpang(
+  late Stream<Permintaan?> _stream = _service.streamTerbaruPenumpang(
     _idPenumpang,
   );
 
   /// Status terakhir yang sudah diumumkan, agar hanya mengumumkan saat berubah.
   StatusPermintaan? _statusTerakhir;
+
+  /// Berlangganan ulang pantauan setelah gagal memuat (tombol "Coba lagi").
+  void _cobaLagi() {
+    setState(() {
+      _stream = _service.streamTerbaruPenumpang(_idPenumpang);
+    });
+  }
 
   String get _nama => DummyData.penumpang.namaPenumpang;
   String get _namaDepan => _nama.trim().split(RegExp(r'\s+')).first;
@@ -86,7 +97,10 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
           stream: _stream,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              return _kerangkaPesan('Gagal memuat pantauan. Periksa koneksi Anda.');
+              return _kerangkaPesan(
+                'Gagal memuat pantauan. Periksa koneksi Anda.',
+                onRetry: _cobaLagi,
+              );
             }
             final p = snapshot.data;
             if (p == null) {
@@ -105,20 +119,10 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _hero(),
-                        // Kartu status menumpuk hero 52px (setara `margin: -52px
-                        // 18px 0` di design; Flutter melarang margin negatif).
-                        Transform.translate(
-                          offset: const Offset(0, -52),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _kartuStatus(p),
-                              _kartuPerjalanan(p),
-                              _kartuRiwayat(p),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ),
+                        _kartuStatus(p),
+                        _kartuPerjalanan(p),
+                        _kartuRiwayat(p),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -134,9 +138,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
 
   Widget _hero() {
     return HeroHeader(
-      color: AppColors.greenHero,
-      borderRadius: 36,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 70),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -146,15 +148,15 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
               onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Semantics(
             header: true,
             child: Text(
               'Perjalanan Ibu $_namaDepan',
               style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -164,8 +166,8 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
             'Dibagikan oleh $_nama · diperbarui otomatis',
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF3F5A4B),
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -173,8 +175,13 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
     );
   }
 
-  /// Kerangka loading / error: hero + pesan di tengah.
-  Widget _kerangkaPesan(String? pesan, {bool loading = false}) {
+  /// Kerangka loading / error: hero + pesan di tengah, plus tombol "Coba lagi"
+  /// bila [onRetry] diberikan.
+  Widget _kerangkaPesan(
+    String? pesan, {
+    bool loading = false,
+    VoidCallback? onRetry,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -182,17 +189,36 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
         Expanded(
           child: Center(
             child: loading
-                ? const CircularProgressIndicator()
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+                    child: Skeleton(
+                      label: 'Memuat status penumpang',
+                      child: const SkeletonRincian(jumlahBaris: 4),
+                    ),
+                  )
                 : Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(
-                      pesan ?? '',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          pesan ?? '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (onRetry != null) ...[
+                          const SizedBox(height: 16),
+                          SecondaryPillButton(
+                            onPressed: onRetry,
+                            label: 'Coba lagi',
+                            height: 52,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
           ),
@@ -215,6 +241,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(color: AppColors.outline),
                 boxShadow: AppShadows.cardSoft,
               ),
               child: Column(
@@ -224,13 +251,13 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                     width: 56,
                     height: 56,
                     decoration: const BoxDecoration(
-                      color: AppColors.greenHero,
+                      color: AppColors.redSoft,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.groups_outlined,
                       size: 28,
-                      color: AppColors.greenFamily,
+                      color: AppColors.redText,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -239,7 +266,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
@@ -274,6 +301,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.cardLarge),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.card,
       ),
       child: Row(
@@ -283,7 +311,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
             width: 52,
             height: 52,
             decoration: const BoxDecoration(
-              color: AppColors.greenFamily,
+              color: AppColors.redPrimary,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, size: 26, color: Colors.white),
@@ -298,9 +326,9 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                   jam == null ? 'STATUS SAAT INI' : 'STATUS SAAT INI · $jam',
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: AppColors.greenFamily,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                    color: AppColors.redText,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -308,7 +336,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                   _teksStatusBesar(p),
                   style: const TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     height: 1.2,
                     color: AppColors.textPrimary,
                   ),
@@ -318,7 +346,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                   _isi(p.namaPenumpang, _nama),
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -328,7 +356,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                     petugas,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
                     ),
                   ),
@@ -355,6 +383,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.cardSoft,
       ),
       child: Column(
@@ -392,7 +421,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.train, size: 16, color: AppColors.greenFamily),
+              const Icon(Icons.train, size: 16, color: AppColors.redText),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -415,7 +444,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
 
   static const TextStyle _gayaKecil = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.textSecondary,
   );
 
@@ -426,7 +455,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w800,
         color: AppColors.textPrimary,
       ),
     );
@@ -452,7 +481,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                 child: Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE1E7E3),
+                    color: AppColors.block,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -464,7 +493,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                 child: Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    color: AppColors.greenFamily,
+                    color: AppColors.redPrimary,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -476,7 +505,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
                   width: sisi,
                   height: sisi,
                   decoration: BoxDecoration(
-                    color: AppColors.greenFamily,
+                    color: AppColors.redPrimary,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 3),
                   ),
@@ -499,6 +528,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.outline),
         boxShadow: AppShadows.cardSoft,
       ),
       child: Column(
@@ -508,9 +538,9 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
             'RIWAYAT',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 12),
@@ -535,7 +565,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TombolHijau(
+          _TombolMerah(
             label: 'Hubungi petugas',
             onTap: () => _segeraHadir('Hubungi petugas'),
           ),
@@ -545,8 +575,8 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
             ),
           ),
         ],
@@ -556,7 +586,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
 
   void _segeraHadir(String judul) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SegeraHadirScreen(title: judul)),
+      TransisiHalaman.masuk(halaman: SegeraHadirScreen(title: judul)),
     );
   }
 
@@ -634,7 +664,7 @@ class _KeluargaPantauScreenState extends State<KeluargaPantauScreen> {
       (nilai == null || nilai.isEmpty) ? fallback : nilai;
 }
 
-/// Satu baris riwayat: centang hijau (selesai) / lingkaran abu (berikutnya).
+/// Satu baris riwayat: centang merah (selesai) / lingkaran abu (berikutnya).
 class _BarisRiwayat extends StatelessWidget {
   const _BarisRiwayat({required this.label, this.waktu, this.selesai = false});
 
@@ -649,7 +679,7 @@ class _BarisRiwayat extends StatelessWidget {
         Icon(
           selesai ? Icons.check : Icons.circle_outlined,
           size: 20,
-          color: selesai ? AppColors.greenFamily : const Color(0xFF9AA0AC),
+          color: selesai ? AppColors.redPrimary : AppColors.outlineControl,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -678,9 +708,9 @@ class _BarisRiwayat extends StatelessWidget {
   }
 }
 
-/// Tombol utama hijau "Hubungi petugas".
-class _TombolHijau extends StatelessWidget {
-  const _TombolHijau({required this.label, required this.onTap});
+/// Tombol utama merah merek "Hubungi petugas" (pill 56, tanpa glow).
+class _TombolMerah extends StatelessWidget {
+  const _TombolMerah({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -696,27 +726,24 @@ class _TombolHijau extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.greenFamily,
-              borderRadius: BorderRadius.circular(29),
-              boxShadow: const [
-                BoxShadow(color: Color(0x4017663F), blurRadius: 22, offset: Offset(0, 10)),
-              ],
+              color: AppColors.redPrimary,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.call, size: 20, color: Colors.white),
+                const Icon(Icons.call, size: 22, color: Colors.white),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     label,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
                   ),

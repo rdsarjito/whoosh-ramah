@@ -3,6 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/dummy.dart';
 import '../models/permintaan.dart';
 
+/// Hasil [PermintaanService.buatPermintaan].
+///
+/// [sudahAda] true bila penumpang masih punya permintaan yang belum selesai:
+/// tidak ada dokumen baru dibuat dan [id] menunjuk ke permintaan yang sudah ada.
+class HasilPermintaan {
+  const HasilPermintaan({required this.id, this.sudahAda = false});
+
+  final String id;
+  final bool sudahAda;
+}
+
 /// Semua akses Firestore untuk koleksi `permintaan_pendampingan` (bagian 4).
 ///
 /// Nama koleksi & field harus sama persis dengan yang ditulis
@@ -22,16 +33,25 @@ class PermintaanService {
 
   /// Membuat permintaan pendampingan baru dari aplikasi penumpang.
   ///
-  /// Mengembalikan id dokumen baru. Data penumpang & tiket diambil dari data
-  /// dummy demo (bagian 5). `status` = menunggu, `sumber` = aplikasi, `riwayat`
-  /// diisi entri awal, `dibuatPada`/`diperbaruiPada` pakai serverTimestamp.
-  Future<String> buatPermintaan({
+  /// **Penjaga permintaan ganda:** bila penumpang masih punya permintaan yang
+  /// belum `selesai`, tidak ada dokumen baru ditulis — id permintaan yang sudah
+  /// ada dikembalikan dengan `sudahAda = true`, supaya UI bisa membuka statusnya
+  /// alih-alih menumpuk tugas kembar di daftar petugas.
+  ///
+  /// Data penumpang & tiket diambil dari data dummy demo (bagian 5). `status` =
+  /// menunggu, `sumber` = aplikasi, `riwayat` diisi entri awal,
+  /// `dibuatPada`/`diperbaruiPada` pakai serverTimestamp.
+  Future<HasilPermintaan> buatPermintaan({
     required JenisBantuan jenisBantuan,
     required String titikJemput,
     String? catatan,
   }) async {
     final tiket = DummyData.tiket;
     final penumpang = DummyData.penumpang;
+
+    final aktif = await _permintaanAktif(penumpang.idPenumpang);
+    if (aktif != null) return HasilPermintaan(id: aktif.id, sudahAda: true);
+
     final data = <String, dynamic>{
       'jenisBantuan': jenisBantuan.value,
       'titikJemput': titikJemput,
@@ -57,7 +77,21 @@ class PermintaanService {
       'diperbaruiPada': FieldValue.serverTimestamp(),
     };
     final ref = await _col.add(data);
-    return ref.id;
+    return HasilPermintaan(id: ref.id);
+  }
+
+  /// Permintaan terbaru milik penumpang yang belum `selesai`, atau null.
+  ///
+  /// Hanya `where` lalu disaring/diurutkan di sisi aplikasi — `where` +
+  /// `orderBy` + `!=` akan menuntut composite index.
+  Future<Permintaan?> _permintaanAktif(String idPenumpang) async {
+    final snap = await _col.where('idPenumpang', isEqualTo: idPenumpang).get();
+    final docs = snap.docs
+        .where((d) => !Permintaan.fromFirestore(d).sudahSelesai)
+        .toList();
+    if (docs.isEmpty) return null;
+    docs.sort(_urutDibuatPadaDesc);
+    return Permintaan.fromFirestore(docs.first);
   }
 
   /// Mendengarkan satu dokumen permintaan (untuk layar status penumpang).
@@ -89,33 +123,91 @@ class PermintaanService {
         return Permintaan.fromFirestore(docs.first);
       });
 
+  /// Antrean per-id untuk [majukanStatus]. Ketukan ganda pada perangkat yang
+  /// sama diurutkan supaya panggilan kedua membaca status yang sudah dimajukan
+  /// panggilan pertama; antar perangkat, transaksi Firestore yang menjaga.
+  final Map<String, Future<void>> _antreanMaju = <String, Future<void>>{};
+
   /// Memajukan status ke tahap berikutnya (menunggu -> ... -> selesai).
+  ///
+  /// Dijalankan dalam **transaksi** supaya dua petugas yang menekan tombol pada
+  /// saat bersamaan tidak melompati satu tahap: pembacaan status dan penulisannya
+  /// terjadi atomik, dan Firestore mengulang transaksi bila dokumen berubah di
+  /// tengah jalan.
   ///
   /// Memperbarui `status` & `diperbaruiPada` (serverTimestamp), menambah entri
   /// `riwayat` lewat `FieldValue.arrayUnion` (waktu pakai `Timestamp.now()`,
-  /// BUKAN serverTimestamp), dan mengisi `petugas` = "Rina" saat jadi `ditugaskan`.
-  /// Tidak melakukan apa-apa bila dokumen tidak ada atau status sudah `selesai`.
-  Future<void> majukanStatus(String id) async {
+  /// BUKAN serverTimestamp — arrayUnion tidak menerima sentinel), dan mengisi
+  /// `petugas` = "Rina" saat jadi `ditugaskan`.
+  /// Tidak melakukan apa-apa bila dokumen tidak ada, status sudah `selesai`,
+  /// atau tahap berikutnya sudah tercatat di `riwayat` (transaksi kembar).
+  Future<void> majukanStatus(String id) {
+    final ekor = _antreanMaju[id] ?? Future<void>.value();
+    final hasil = ekor.then((_) => _majukanDalamTransaksi(id));
+    // Ekor antrean tidak boleh ikut gagal: panggilan berikutnya harus tetap
+    // berjalan walau panggilan ini melempar (mis. jaringan putus).
+    final ekorBaru = hasil.then<void>((_) {}, onError: (Object _) {});
+    _antreanMaju[id] = ekorBaru;
+    ekorBaru.whenComplete(() {
+      if (identical(_antreanMaju[id], ekorBaru)) _antreanMaju.remove(id);
+    });
+    return hasil;
+  }
+
+  Future<void> _majukanDalamTransaksi(String id) async {
+    final ref = _col.doc(id);
+    await _db.runTransaction<void>((tx) async {
+      // Semua pembacaan harus mendahului semua penulisan dalam transaksi.
+      final snap = await tx.get(ref);
+      final data = snap.data();
+      if (data == null) return;
+
+      final sekarang = StatusPermintaan.dariValue(data['status'] as String?);
+      final berikutnya = sekarang.berikutnya;
+      if (berikutnya == null) return; // sudah selesai
+
+      // Penjaga tambahan di sisi aplikasi: bila tahap berikutnya sudah ada di
+      // riwayat, permintaan ini sudah dimajukan pihak lain — jangan menambah
+      // entri kembar walau transaksi tidak diulang (mis. saat pengujian).
+      final riwayat = data['riwayat'];
+      if (riwayat is List &&
+          riwayat.any((e) => e is Map && e['status'] == berikutnya.value)) {
+        return;
+      }
+
+      final update = <String, dynamic>{
+        'status': berikutnya.value,
+        'diperbaruiPada': FieldValue.serverTimestamp(),
+        'riwayat': FieldValue.arrayUnion(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'status': berikutnya.value,
+            'waktu': Timestamp.now(),
+          },
+        ]),
+      };
+      if (berikutnya == StatusPermintaan.ditugaskan) {
+        update['petugas'] = DummyData.petugas.nama; // 'Rina'
+      }
+      tx.update(ref, update);
+    });
+  }
+
+  /// Menandai penumpang sudah tiba di titik jemput (tombol "Saya sudah sampai
+  /// di lobi"). Menyimpan `tibaPada` (serverTimestamp) supaya petugas melihat
+  /// kabar ini di detail tugas, dan memperbarui `diperbaruiPada`.
+  ///
+  /// Idempoten: bila `tibaPada` sudah terisi, tidak menulis ulang sehingga
+  /// ketukan ganda tidak menggeser jam kedatangan.
+  Future<void> tandaiTiba(String id) async {
     final ref = _col.doc(id);
     final snap = await ref.get();
     final data = snap.data();
     if (data == null) return;
-
-    final sekarang = StatusPermintaan.dariValue(data['status'] as String?);
-    final berikutnya = sekarang.berikutnya;
-    if (berikutnya == null) return; // sudah selesai
-
-    final update = <String, dynamic>{
-      'status': berikutnya.value,
+    if (data['tibaPada'] != null) return;
+    await ref.update(<String, dynamic>{
+      'tibaPada': FieldValue.serverTimestamp(),
       'diperbaruiPada': FieldValue.serverTimestamp(),
-      'riwayat': FieldValue.arrayUnion(<Map<String, dynamic>>[
-        <String, dynamic>{'status': berikutnya.value, 'waktu': Timestamp.now()},
-      ]),
-    };
-    if (berikutnya == StatusPermintaan.ditugaskan) {
-      update['petugas'] = DummyData.petugas.nama; // 'Rina'
-    }
-    await ref.update(update);
+    });
   }
 
   /// Pembanding untuk mengurutkan dokumen berdasar `dibuatPada` menurun

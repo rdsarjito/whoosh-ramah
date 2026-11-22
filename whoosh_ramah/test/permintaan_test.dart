@@ -125,6 +125,115 @@ void main() {
     });
   });
 
+  group('Permintaan.tibaPada — kabar tiba dari penumpang (Tier 1 A1)', () {
+    final waktu = DateTime(2026, 11, 22, 7, 50);
+
+    Permintaan minimal({DateTime? tibaPada}) => Permintaan(
+          id: 'app-1',
+          jenisBantuan: JenisBantuan.kursiRoda,
+          titikJemput: 'Lobi utama',
+          status: StatusPermintaan.ditugaskan,
+          sumber: 'aplikasi',
+          tibaPada: tibaPada,
+        );
+
+    test('dokumen detektor tanpa tibaPada -> null, sudahTiba false', () {
+      final p = Permintaan.fromMap(<String, dynamic>{'sumber': 'kamera_ai'});
+      expect(p.tibaPada, isNull);
+      expect(p.sudahTiba, isFalse);
+    });
+
+    test('Timestamp tibaPada menjadi DateTime, sudahTiba true', () {
+      final p = Permintaan.fromMap(<String, dynamic>{
+        'tibaPada': Timestamp.fromDate(waktu),
+      });
+      expect(p.tibaPada, waktu);
+      expect(p.sudahTiba, isTrue);
+    });
+
+    test('toFirestore -> fromMap mempertahankan jam kedatangan', () {
+      final hasil = Permintaan.fromMap(minimal(tibaPada: waktu).toFirestore(), id: 'app-1');
+      expect(hasil.tibaPada, waktu);
+      expect(hasil.sudahTiba, isTrue);
+    });
+
+    test('belum tiba tetap null setelah round-trip (tidak mengarang jam)', () {
+      final hasil = Permintaan.fromMap(minimal().toFirestore(), id: 'app-1');
+      expect(hasil.tibaPada, isNull);
+      expect(hasil.sudahTiba, isFalse);
+      expect(hasil.toFirestore()['tibaPada'], isNull);
+    });
+  });
+
+  group('Permintaan.adaFoto & penolakan (O1 + A3)', () {
+    final waktuTolak = DateTime(2026, 11, 22, 8, 5);
+
+    Permintaan kamera({
+      StatusPermintaan status = StatusPermintaan.menunggu,
+      bool adaFoto = false,
+      DateTime? ditolakPada,
+      String? alasanTolak,
+      String sumber = 'kamera_ai',
+    }) =>
+        Permintaan(
+          id: 'cam-1',
+          jenisBantuan: JenisBantuan.kursiRoda,
+          titikJemput: 'Stasiun Halim - Pintu Masuk Utara',
+          status: status,
+          sumber: sumber,
+          adaFoto: adaFoto,
+          ditolakPada: ditolakPada,
+          alasanTolak: alasanTolak,
+        );
+
+    test('dokumen detektor tanpa adaFoto -> false (null-safe)', () {
+      final p = Permintaan.fromMap(<String, dynamic>{'sumber': 'kamera_ai'});
+      expect(p.adaFoto, isFalse);
+      expect(p.ditolakPada, isNull);
+      expect(p.alasanTolak, isNull);
+      expect(p.sudahDitolak, isFalse);
+    });
+
+    test('adaFoto true terbaca; round-trip mempertahankan flag', () {
+      final p = Permintaan.fromMap(<String, dynamic>{'adaFoto': true});
+      expect(p.adaFoto, isTrue);
+      final hasil =
+          Permintaan.fromMap(kamera(adaFoto: true).toFirestore(), id: 'cam-1');
+      expect(hasil.adaFoto, isTrue);
+    });
+
+    test('ditolakPada & alasanTolak terurai; status TIDAK berubah', () {
+      final p = Permintaan.fromMap(<String, dynamic>{
+        'ditolakPada': Timestamp.fromDate(waktuTolak),
+        'alasanTolak': 'Bukan pengguna kursi roda',
+      });
+      expect(p.ditolakPada, waktuTolak);
+      expect(p.alasanTolak, 'Bukan pengguna kursi roda');
+      expect(p.sudahDitolak, isTrue);
+      // Penolakan tidak menambah nilai enum status (kontrak bagian 4).
+      expect(p.status, StatusPermintaan.menunggu);
+    });
+
+    test('round-trip penolakan mempertahankan jam & alasan', () {
+      final hasil = Permintaan.fromMap(
+        kamera(ditolakPada: waktuTolak, alasanTolak: 'Bukan pengguna kursi roda')
+            .toFirestore(),
+        id: 'cam-1',
+      );
+      expect(hasil.ditolakPada, waktuTolak);
+      expect(hasil.alasanTolak, 'Bukan pengguna kursi roda');
+      expect(hasil.sudahDitolak, isTrue);
+    });
+
+    test('bisaDitolak: hanya kamera AI yang belum selesai & belum ditolak', () {
+      expect(kamera().bisaDitolak, isTrue);
+      expect(kamera(status: StatusPermintaan.ditugaskan).bisaDitolak, isTrue);
+      expect(kamera(status: StatusPermintaan.selesai).bisaDitolak, isFalse);
+      expect(kamera(ditolakPada: waktuTolak).bisaDitolak, isFalse);
+      expect(kamera(sumber: 'aplikasi').bisaDitolak, isFalse);
+    });
+  });
+
   group('Enum & fallback', () {
     test('dariValue fallback untuk nilai tak dikenal / null', () {
       expect(StatusPermintaan.dariValue(null), StatusPermintaan.menunggu);

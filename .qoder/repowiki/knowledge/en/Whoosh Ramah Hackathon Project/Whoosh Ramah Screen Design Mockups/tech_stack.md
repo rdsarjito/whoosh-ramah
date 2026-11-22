@@ -1,0 +1,1 @@
+Kanvas designer runtime (`DCLogic`, `<x-dc>`, `<helmet>`, `<sc-for>`, `<sc-if>` template syntax); Nunito font via Google Fonts; inline SVG for all illustrations; no CSS framework — all styling is inline `style=` attributes.

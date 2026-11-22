@@ -1,0 +1,1 @@
+Run `flutterfire configure` to generate `firebase_options.dart`, then run the Flutter app from `whoosh_ramah/`; run `detector/detect_wheelchair.py` separately on a laptop to populate Firestore, which the Flutter screens consume in real time.
