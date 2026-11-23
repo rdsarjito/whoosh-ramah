@@ -1,180 +1,197 @@
-# Whoosh Ramah
+<p align="center">
+  <img src="whoosh_ramah/assets/logo/logo_kereta_512.png" alt="Whoosh Ramah logo — the smiling Whoosh train" width="180" />
+</p>
 
-Prototipe hackathon pendampingan **penumpang prioritas kereta cepat Whoosh (KCIC)** —
-lansia, penyandang disabilitas, ibu hamil, penumpang sakit, dan anak tanpa pendamping.
-Satu aplikasi Flutter berisi tiga peran (**Penumpang**, **Petugas**, **Keluarga**),
-ditambah **kamera AI** Python yang mendeteksi pengguna kursi roda di pintu masuk
-stasiun dan membuat tugas pendampingan secara otomatis.
+<h1 align="center">Whoosh Ramah</h1>
 
-Alur manual digantikan alur real-time: penumpang memesan pendamping dari HP,
-petugas menerima dan memajukan tugas, keluarga memantau perjalanan — semuanya
-tersinkron lewat Cloud Firestore tanpa server sendiri.
+<p align="center">
+  Priority-passenger assistance for the Whoosh high-speed rail (KCIC).<br />
+  One Flutter app, three roles, plus an AI camera that spots wheelchair users automatically.
+</p>
+
+Hackathon prototype for **priority-passenger assistance on the Whoosh high-speed
+rail (KCIC)** — elderly travelers, people with disabilities, pregnant women, sick
+passengers, and unaccompanied children. One Flutter app covers three roles
+(**Penumpang** / passenger, **Petugas** / station officer, **Keluarga** / family),
+plus a Python **AI camera** that detects wheelchair users at the station entrance
+and creates assistance tasks automatically.
+
+The manual flow becomes real-time: passengers request assistance from their
+phone, officers accept and advance tasks, families monitor the journey — all
+synchronized through Cloud Firestore with no custom backend server.
 
 ```
-Kamera ──► detector/detect_wheelchair.py ──┐
+Camera ──► detector/detect_wheelchair.py ──┐
                                            ▼
-HP Penumpang ──► aplikasi Flutter ──► Cloud Firestore ──► HP Petugas (real-time)
+Passenger phone ──► Flutter app ──► Cloud Firestore ──► Officer phone (real-time)
                                            │
-                                           └──────────► HP Keluarga (real-time)
+                                           └──────────► Family phone (real-time)
 ```
 
-> **Status:** prototipe demo hackathon (2–3 HP + 1 laptop). Bukan produk produksi:
-> tanpa login sungguhan, integrasi tiket KCIC, pembayaran, penjadwalan otomatis,
-> atau notifikasi push. Aturan Firestore terbuka khusus demo.
+> **Status:** hackathon demo prototype (2–3 phones + 1 laptop). Not a production
+> system: no real login, KCIC ticketing integration, payments, automatic
+> scheduling, or push notifications. Firestore rules are open for the demo only.
 
-## Isi repo
+## Repository contents
 
-| Folder / file | Isi |
+| Folder / file | Contents |
 | --- | --- |
-| [`whoosh_ramah/`](whoosh_ramah/README.md) | Aplikasi Flutter (penumpang, petugas, keluarga) + tes, golden, CI, seed demo |
-| [`detector/`](detector/README.md) | Detektor kursi roda Python (YOLO-World / Roboflow / model lokal) + cuplikan verifikasi |
-| [`design/`](design/README.md) | Acuan desain HTML layar (kanvas Gaya B) |
-| `whoosh-ramah-gaya-baru/` | Acuan desain **Brightline** yang dipakai aplikasi saat ini |
-| [`PROJECT.md`](PROJECT.md) | Spesifikasi lengkap & sumber kebenaran: skema data (§4), layar (§6), aksesibilitas (§8), privasi (§12) |
-| `mise.toml` | Pin versi tool (Python 3.12 via [mise](https://mise.jdx.dev/)) |
-| `.qoder/repowiki/` | Wiki repo terperinci (arsitektur, pipeline deteksi, alur layar, troubleshooting) |
+| [`whoosh_ramah/`](whoosh_ramah/README.md) | Flutter app (passenger, officer, family) + tests, goldens, CI, demo seed |
+| [`detector/`](detector/README.md) | Python wheelchair detector (YOLO-World / Roboflow / local model) + verification crops |
+| [`design/`](design/README.md) | HTML screen design references (Gaya B canvas) |
+| `whoosh-ramah-gaya-baru/` | **Brightline** design references used by the current app |
+| [`PROJECT.md`](PROJECT.md) | Full specification & source of truth: data schema (§4), screens (§6), accessibility (§8), privacy (§12) |
+| `mise.toml` | Tool version pins (Python 3.12 via [mise](https://mise.jdx.dev/)) |
+| `.qoder/repowiki/` | Detailed repo wiki (architecture, detection pipeline, screen flows, troubleshooting) |
 
-## Tiga peran, satu koleksi
+## Three roles, one collection
 
-Semua peran membaca/menulis koleksi Firestore `permintaan_pendampingan`
-(skema lengkap: [PROJECT.md §4](PROJECT.md)). Satu dokumen = satu permintaan
-pendampingan, dengan enum status berurutan:
+All roles read/write the Firestore collection `permintaan_pendampingan`
+(full schema: [PROJECT.md §4](PROJECT.md)). One document = one assistance
+request, with an ordered status enum:
 
 `menunggu → ditugaskan → bertemu → di_kursi → selesai`
+(waiting → assigned → met → seated → completed)
 
-| Peran | Alur utama |
+| Role | Main flow |
 | --- | --- |
-| **Penumpang** | Lihat tiket contoh (G1123 Halim → Tegalluar) → pesan pendamping (6 jenis bantuan, 3 titik jemput) → pantau timeline status real-time → bagikan ke keluarga |
-| **Petugas** | Daftar tugas real-time (badge **Kamera AI** / **Aplikasi**, ringkasan Baru/Berjalan/Selesai/Ditolak) → detail tugas → satu tombol besar memajukan status. Tugas kamera AI menampilkan **cuplikan verifikasi** + tombol **"Bukan penumpang / tolak"** bila AI salah mendeteksi |
-| **Keluarga** | Pantau permintaan terbaru penumpang demo (`demo-siti`): status saat ini, progres perjalanan, riwayat berjam |
+| **Penumpang** (passenger) | View sample ticket (G1123 Halim → Tegalluar) → request assistance (6 assistance types, 3 pickup points) → track the real-time status timeline → share with family |
+| **Petugas** (officer) | Real-time task list (**Kamera AI** / **Aplikasi** source badges, Baru/Berjalan/Selesai/Ditolak recap) → task detail → one large button advances the status. AI-camera tasks show a **verification crop** plus a **"Bukan penumpang / tolak"** (not a passenger / reject) button when the AI misdetected |
+| **Keluarga** (family) | Monitor the demo passenger's latest request (`demo-siti`): current status, journey progress, timestamped history |
 
-Penolakan tugas kamera tidak menambah enum status — dokumen diberi `ditolakPada`
-dan keluar dari daftar aktif, dihitung terpisah di ringkasan "Ditolak".
+Rejecting a camera task does not add a status enum value — the document gets
+`ditolakPada`, leaves the active list, and is counted separately in the
+"Ditolak" (rejected) recap.
 
-Jenis bantuan: `kursi_roda`, `tunanetra`, `tuli`, `lansia`, `hamil`, `porter`.
+Assistance types: `kursi_roda`, `tunanetra`, `tuli`, `lansia`, `hamil`, `porter`
+(wheelchair, blind, deaf, elderly, pregnant, porter).
 
-## Kamera AI (detector)
+## AI camera (detector)
 
-Detektor berjalan di laptop, terpisah dari aplikasi; keduanya hanya bertemu di
-Firestore. Mode bawaan **YOLO-World** (`yolov8s-worldv2.pt`) — cukup tulis nama
-benda, jalan tanpa API key. Alternatif: model Roboflow (Jalan A) atau model YOLO
-hasil latihan sendiri (Jalan B).
+The detector runs on a laptop, separate from the app; the two only meet in
+Firestore. Default mode is **YOLO-World** (`yolov8s-worldv2.pt`) — just write the
+object name, runs without an API key. Alternatives: a Roboflow-hosted model
+(path A) or your own trained YOLO model (path B).
 
-- **Satu tugas per orang**, bukan per jeda: tracking ByteTrack memberi id per
-  kursi roda; tugas dibuat hanya untuk id yang belum pernah dikirim dan terlihat
-  `FRAME_BERTURUT` kali berturut-turut. Cooldown `JEDA_ANTAR_TUGAS_DETIK` berlaku
-  per id.
-- **Cuplikan verifikasi** untuk petugas: disimpan sebagai base64 di koleksi
-  terpisah `permintaan_foto/{idTugas}` (bukan Cloud Storage — project di paket
-  Spark), lalu **dihapus otomatis setelah 10 menit** (`FOTO_TTL_DETIK=600`) oleh
-  thread latar + sapuan saat start. Bila penulisan foto gagal, tugas tetap dibuat
-  tanpa foto.
-  - `FOTO_ANONIM=false` (bawaan demo, peserta yang setuju): cuplikan **asli**,
-    maks 480 px, JPEG q80, tanpa blur/pikselasi.
-  - `FOTO_ANONIM=true` (**wajib produksi**): wajah di-blur (Haar cascade) +
-    pikselasi, maks 160 px, q60.
-  - Panjang base64 dijaga jauh di bawah batas dokumen Firestore 1 MiB.
+- **One task per person**, not per pause: ByteTrack tracking assigns an id per
+  wheelchair; a task is created only for an id never sent before that has been
+  seen `FRAME_BERTURUT` consecutive times. The `JEDA_ANTAR_TUGAS_DETIK` cooldown
+  applies per id.
+- **Verification crop** for officers: stored as base64 in the separate
+  collection `permintaan_foto/{idTugas}` (not Cloud Storage — the project is on
+  the Spark plan), then **auto-deleted after 10 minutes** (`FOTO_TTL_DETIK=600`)
+  by a background thread plus a startup sweep. If writing the photo fails, the
+  task is still created without one.
+  - `FOTO_ANONIM=false` (demo default, consenting participants): **raw** crop,
+    max 480 px, JPEG q80, no blur/pixelation.
+  - `FOTO_ANONIM=true` (**mandatory for production**): face blurred (Haar
+    cascade) + pixelated, max 160 px, q60.
+  - Base64 length is kept far below the 1 MiB Firestore document limit.
 
-Panduan lengkap (setup venv, `.env`, uji tanpa Firebase, latih model):
+Full guide (venv setup, `.env`, testing without Firebase, training a model):
 [`detector/README.md`](detector/README.md).
 
-## Menjalankan
+## Running
 
-Prasyarat: **Flutter 3.50.1 / stable** (Dart 3.14) + JDK 17 + perangkat/emulator
-Android; **Python 3.10+** (disarankan 3.12) untuk detektor.
+Prerequisites: **Flutter 3.50.1 / stable** (Dart 3.14) + JDK 17 + an Android
+device/emulator; **Python 3.10+** (3.12 recommended) for the detector.
 
-### 1. Aplikasi Flutter
+### 1. Flutter app
 
-Konfigurasi Firebase proyek demo sudah ikut di repo
-(`lib/firebase_options.dart`, `android/app/google-services.json`) — tidak perlu
-`flutterfire configure` lagi.
+The demo project's Firebase configuration already ships in the repo
+(`lib/firebase_options.dart`, `android/app/google-services.json`) — no need to
+run `flutterfire configure` again.
 
 ```bash
 cd whoosh_ramah
 flutter pub get
-flutter run                 # pilih perangkat Android saat diminta
+flutter run                 # pick an Android device when prompted
 ```
 
-Deploy aturan Firestore (terbuka khusus demo) sebelum memakai aplikasi:
+Deploy the Firestore rules (open, demo-only) before using the app:
 
 ```bash
 cd whoosh_ramah
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-Tidak ada composite index: semua query hanya satu field, sisanya disaring di
-sisi aplikasi.
+No composite indexes: every query uses a single field; the rest is filtered
+app-side.
 
-### 2. Detektor kursi roda
+### 2. Wheelchair detector
 
 ```bash
 cd detector
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env            # lalu isi sesuai kebutuhan
+cp .env.example .env            # then fill in as needed
 ```
 
-Uji deteksi dulu tanpa Firebase (webcam atau video):
+Test detection without Firebase first (webcam or video):
 
 ```bash
 python detect_wheelchair.py --tanpa-firebase
 python detect_wheelchair.py --sumber contoh.mp4 --tanpa-firebase
 ```
 
-Untuk menulis tugas ke Firestore, unduh kunci service account dari Firebase
-console → simpan sebagai `detector/firebase-key.json` (**jangan di-commit**),
-lalu jalankan `python detect_wheelchair.py`. Setiap kursi roda terdeteksi,
-kartu "Kamera AI" muncul di HP petugas dalam beberapa detik.
+To write tasks to Firestore, download a service account key from the Firebase
+console → save it as `detector/firebase-key.json` (**never commit it**), then
+run `python detect_wheelchair.py`. Every detected wheelchair shows up as a
+"Kamera AI" card on the officer's phone within seconds.
 
-### 3. Seed demo (opsional)
+### 3. Demo seed (optional)
 
-Daftar petugas langsung ramai dengan tiga dokumen demo (aman dijalankan ulang):
+Populate the officer list with three demo documents (safe to re-run):
 
 ```bash
 detector/venv/bin/python whoosh_ramah/tool/seed_demo.py
 detector/venv/bin/python whoosh_ramah/tool/seed_demo.py --bersih
 ```
 
-Alur demo lengkap ±3 menit ada di [`whoosh_ramah/README.md`](whoosh_ramah/README.md).
+The full ±3-minute demo walkthrough lives in
+[`whoosh_ramah/README.md`](whoosh_ramah/README.md).
 
-## Pengujian & CI
+## Testing & CI
 
 ```bash
 cd whoosh_ramah
 flutter analyze
-flutter test                         # seluruh suite, termasuk golden
-flutter test --exclude-tags golden   # tanpa golden (Linux/CI)
+flutter test                         # full suite, including goldens
+flutter test --exclude-tags golden   # without goldens (Linux/CI)
 ```
 
-Suite mencakup kontrak data & transaksi terhadap `fake_cloud_firestore`,
-regresi kontras WCAG, semua layar pada skala teks 1.3/1.5, dan golden piksel
-(direkam di macOS). CI (`.github/workflows/ci.yml`) menjalankan analyze + test
-di Linux, golden di macOS, dan pemeriksaan sintaks detektor.
+The suite covers data contracts & transactions against `fake_cloud_firestore`,
+WCAG contrast regressions, every screen at 1.3/1.5 text scale, and pixel goldens
+(recorded on macOS). CI (`.github/workflows/ci.yml`) runs analyze + test on
+Linux, goldens on macOS, and a detector syntax check.
 
-## Aksesibilitas (wajib)
+## Accessibility (mandatory)
 
-Target sentuh ≥ 48 dp, `Semantics` pada kontrol ikon-saja, status tidak pernah
-hanya warna, kontras lolos WCAG, tata letak utuh pada skala teks 130–150%,
-animasi hormat pada *reduce motion*, dan alur penumpang bisa diselesaikan
-dengan TalkBack/VoiceOver tanpa melihat layar.
+Touch targets ≥ 48 dp, `Semantics` on icon-only controls, status never conveyed
+by color alone, WCAG-passing contrast, layouts intact at 130–150% text scale,
+animations respect *reduce motion*, and the passenger flow can be completed
+with TalkBack/VoiceOver without looking at the screen.
 
-## Privasi
+## Privacy
 
-- Untuk demo hackathon dengan peserta yang setuju, cuplikan asli boleh dipakai
-  dan terhapus otomatis dalam 10 menit. Versi produksi wajib menyamarkan wajah.
-- Semua nama dan data tiket adalah contoh.
-- Aturan Firestore terbuka (`allow read, write: if true`) **hanya untuk demo**;
-  jangan dipakai produksi.
+- For the hackathon demo with consenting participants, raw crops may be used
+  and are auto-deleted within 10 minutes. Production versions must anonymize
+  faces.
+- All names and ticket data are samples.
+- Open Firestore rules (`allow read, write: if true`) are **demo-only**; never
+  use them in production.
 
-## Desain & teknis
+## Design & technical notes
 
-Tampilan mengikuti gaya **Brightline** (acuan: `whoosh-ramah-gaya-baru/design/`):
-kanvas putih, satu aksen merah merek `#E11D2E`, font **Plus Jakarta Sans**
-(500–800) dibundel lokal agar demo tidak butuh internet. UI memakai fork
-`package:material_ui`; semua token terpusat di `whoosh_ramah/lib/theme.dart`.
-Detail teknis (transisi, skeleton, antrean tulis per-id, penjaga permintaan
-ganda): [`whoosh_ramah/README.md`](whoosh_ramah/README.md).
+The look follows the **Brightline** style (references:
+`whoosh-ramah-gaya-baru/design/`): white canvas, a single brand-red accent
+`#E11D2E`, and **Plus Jakarta Sans** (500–800) bundled locally so the demo needs
+no internet. The UI uses the `package:material_ui` fork; all tokens live in
+`whoosh_ramah/lib/theme.dart`. Technical details (transitions, skeletons,
+per-id write queue, duplicate-request guard):
+[`whoosh_ramah/README.md`](whoosh_ramah/README.md).
 
-Dokumentasi lebih dalam — arsitektur sistem, pipeline deteksi, skema data,
-alur tiap layar, troubleshooting — tersedia di wiki repo (`.qoder/repowiki/`).
+Deeper documentation — system architecture, detection pipeline, data schema,
+per-screen flows, troubleshooting — is available in the repo wiki
+(`.qoder/repowiki/`).
