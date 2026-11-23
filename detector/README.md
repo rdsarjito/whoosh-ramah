@@ -82,9 +82,10 @@ Kamera ──► detect_wheelchair.py ──► Firestore "permintaan_pendamping
 | `FRAME_BERTURUT` | 3 | Harus terlihat 3 kali berturut sebelum tugas dibuat |
 | `JEDA_ANTAR_TUGAS_DETIK` | 60 | Mencegah satu orang menghasilkan banyak tugas |
 | `DETEKSI_TIAP_DETIK` | 1.0 | Seberapa sering AI dipanggil (hemat kuota Roboflow) |
-| `FOTO_AKTIF` | true | Kirim cuplikan verifikasi anonim ke petugas (mode yoloworld/lokal) |
+| `FOTO_AKTIF` | true | Kirim cuplikan verifikasi ke petugas (mode yoloworld/lokal) |
+| `FOTO_ANONIM` | false | false = cuplikan asli (demo, peserta yang setuju); true = blur wajah + pikselasi (wajib produksi) |
 | `FOTO_TTL_DETIK` | 600 | Cuplikan dihapus otomatis setelah 600 detik (10 menit) |
-| `FOTO_MAKS_PIKSEL` | 160 | Sisi terpanjang cuplikan; wajah di-blur + dipikselkan |
+| `FOTO_MAKS_PIKSEL` | 480 | Sisi terpanjang cuplikan asli (JPEG q80); jalur anonim tetap maks 160 px (q60) |
 
 ## Tips demo
 
@@ -92,4 +93,6 @@ Kamera ──► detect_wheelchair.py ──► Firestore "permintaan_pendamping
   kursi roda sungguhan tidak tersedia.
 - Jalankan detektor di laptop, dan buka aplikasi petugas di HP di sebelahnya
   supaya juri melihat notifikasi muncul.
-- Wajah tidak disimpan; yang dikirim ke Firebase hanya jenis bantuan, lokasi, dan waktu.
+- Untuk demo hackathon dengan peserta yang setuju, cuplikan asli boleh dipakai
+  (`FOTO_ANONIM=false`) dan terhapus otomatis dalam 10 menit. Versi produksi
+  wajib menyamarkan wajah (`FOTO_ANONIM=true`).

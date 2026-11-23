@@ -17,7 +17,9 @@
 
 **Tujuan hackathon.** Prototipe yang bisa didemokan langsung di 2–3 HP + 1 laptop dalam 1 minggu, dikerjakan 1 orang.
 
-**Di luar cakupan (JANGAN dibuat).** Login/akun sungguhan, integrasi sistem tiket KCIC, pembayaran, penjadwalan petugas otomatis, notifikasi push, penyimpanan foto wajah.
+**Di luar cakupan (JANGAN dibuat).** Login/akun sungguhan, integrasi sistem tiket KCIC, pembayaran, penjadwalan petugas otomatis, notifikasi push.
+
+**Foto verifikasi.** Untuk demo hackathon dengan peserta yang setuju, cuplikan asli boleh dipakai dan terhapus otomatis dalam 10 menit. Versi produksi wajib menyamarkan wajah.
 
 ---
 
@@ -75,7 +77,7 @@ Nama koleksi dan field **harus sama persis** dengan yang ditulis `detector/detec
 | `petugas` | string \| null | `Rina` | petugas |
 | `idKamera` | string \| null | `halim-utara-01` | detektor |
 | `keyakinan` | number \| null | `0.87` | detektor |
-| `adaFoto` | bool | `true` | detektor (hanya bila cuplikan anonim berhasil ditulis; tanpa field = tidak ada foto) |
+| `adaFoto` | bool | `true` | detektor (hanya bila cuplikan verifikasi berhasil ditulis; tanpa field = tidak ada foto) |
 | `ditolakPada` | Timestamp \| null | – | petugas (tombol "Bukan penumpang / tolak", khusus tugas kamera AI) |
 | `alasanTolak` | string \| null | `Bukan pengguna kursi roda` | petugas |
 | `riwayat` | array of map | `[{status: "menunggu", waktu: Timestamp}]` | semua (tambah setiap ubah status) |
@@ -105,7 +107,7 @@ Cuplikan disimpan sebagai base64 di Firestore, **bukan Cloud Storage** — proje
 
 | Field | Tipe | Keterangan |
 | --- | --- | --- |
-| `gambar` | string (base64) | JPEG cuplikan anonim: maks 160 px, dipikselkan, wajah di-blur dengan Haar cascade, kualitas 60 |
+| `gambar` | string (base64) | JPEG cuplikan verifikasi. Demo (`FOTO_ANONIM=false`, peserta setuju): cuplikan asli maks 480 px, kualitas 80. Produksi (`FOTO_ANONIM=true`): dipikselkan + wajah di-blur Haar cascade, maks 160 px, kualitas 60. Panjang base64 dijaga jauh di bawah batas dokumen 1 MiB |
 | `dibuatPada` | Timestamp (server) | waktu cuplikan ditulis |
 | `kedaluwarsaPada` | Timestamp | `dibuatPada` + `FOTO_TTL_DETIK` (default 600 detik / 10 menit) |
 
@@ -151,7 +153,7 @@ Desain visual setiap layar ada di folder `design/` (file HTML, buka di browser a
 | 2 | Penumpang – Pesan pendamping | `Penumpang-Pesan.dc.html` | Pilih 1 dari 6 jenis bantuan, pilih 1 dari 3 titik jemput, catatan opsional. "Kirim permintaan" → buat dokumen Firestore (`status: menunggu`, `sumber: aplikasi`, data tiket dummy) → layar 3 |
 | 3 | Penumpang – Status | `Penumpang-Status.dc.html` | Mendengarkan dokumen yang baru dibuat secara real-time. Timeline 5 status. Nama petugas muncul setelah `ditugaskan`. Tombol "Bagikan ke keluarga" → layar 7 |
 | 4 | Kamera AI | `Kamera-AI.dc.html` | **Tidak dibuat di Flutter.** Ini jendela detektor Python. Desain hanya acuan |
-| 5 | Petugas – Daftar tugas | `Petugas-Tugas.dc.html` | Daftar real-time semua dokumen dengan `status != selesai` dan belum ditolak (`ditolakPada` null), terbaru di atas. Badge merah "Kamera AI" (sumber `kamera_ai`) atau biru "Aplikasi". Ringkasan jumlah Baru/Berjalan/Selesai/Ditolak. Kartu Kamera AI ber-`adaFoto` menampilkan thumbnail cuplikan anonim (state "Cuplikan sudah kedaluwarsa" bila dokumen foto hilang). Ketuk kartu → layar 6 |
+| 5 | Petugas – Daftar tugas | `Petugas-Tugas.dc.html` | Daftar real-time semua dokumen dengan `status != selesai` dan belum ditolak (`ditolakPada` null), terbaru di atas. Badge merah "Kamera AI" (sumber `kamera_ai`) atau biru "Aplikasi". Ringkasan jumlah Baru/Berjalan/Selesai/Ditolak. Kartu Kamera AI ber-`adaFoto` menampilkan thumbnail cuplikan verifikasi (state "Cuplikan sudah kedaluwarsa" bila dokumen foto hilang). Ketuk kartu → layar 6 |
 | 6 | Petugas – Detail tugas | `Petugas-Detail.dc.html` | Info penumpang (atau "Penumpang belum diketahui" untuk kamera AI), stepper status, satu tombol besar yang memajukan status ke tahap berikutnya (update Firestore + tambah `riwayat` + isi `petugas: "Rina"` saat `ditugaskan`). Bila `adaFoto`: cuplikan verifikasi penuh (`Image.memory` dari base64 `permintaan_foto/{idTugas}`) + tombol sekunder "Bukan penumpang / tolak" khusus tugas kamera AI yang belum selesai/ditolak — menulis `ditolakPada` + `alasanTolak` tanpa mengubah enum `status` |
 | 7 | Keluarga – Pantau | `Keluarga-Pantau.dc.html` | Mendengarkan permintaan terbaru milik `idPenumpang = demo-siti`. Kartu status saat ini, progres perjalanan, riwayat dengan jam |
 
@@ -266,5 +268,5 @@ Setelah setiap langkah: jalankan aplikasi, tes, lalu `git commit`.
 
 ## 12. Privasi
 
-- Kamera tidak menyimpan foto wajah. Cuplikan anonim (wajah disamarkan) disimpan maksimal 10 menit hanya untuk verifikasi petugas, lalu dihapus otomatis.
+- Untuk demo hackathon dengan peserta yang setuju, cuplikan asli boleh dipakai dan terhapus otomatis dalam 10 menit. Versi produksi wajib menyamarkan wajah.
 - Semua nama dan data tiket adalah contoh.

@@ -16,10 +16,13 @@ Mode yoloworld & lokal memakai ByteTrack (model.track persist=True) sehingga
  jeda. ID yang hilang > 30 detik dianggap orang baru bila muncul kembali.
  Mode roboflow tetap memakai cara lama (streak + jeda global, tanpa tracking).
 
-Mode yoloworld & lokal juga mengirim cuplikan verifikasi anonim (O1): crop
-kotak deteksi dipikselkan + wajah di-blur (Haar), disimpan base64 di koleksi
-permintaan_foto/{idTugas} maksimal FOTO_TTL_DETIK (default 600 detik), lalu
-dihapus thread latar. Gagal menulis foto -> tugas tetap dibuat tanpa foto.
+Mode yoloworld & lokal juga mengirim cuplikan verifikasi (O1): crop kotak
+deteksi disimpan base64 di koleksi permintaan_foto/{idTugas} maksimal
+FOTO_TTL_DETIK (default 600 detik), lalu dihapus thread latar. Bawaan demo
+(FOTO_ANONIM=false): cuplikan ASLI maks 480 px JPEG q80, hanya untuk peserta
+yang setuju. FOTO_ANONIM=true: cara lama — wajah di-blur (Haar) + pikselasi,
+maks 160 px JPEG q60 (wajib untuk produksi). Gagal menulis foto -> tugas
+tetap dibuat tanpa foto.
 
 Contoh menjalankan:
   python detect_wheelchair.py                      # webcam, mode dari .env
@@ -84,11 +87,13 @@ FIREBASE_KEY = os.getenv("FIREBASE_KEY", "firebase-key.json")
 KOLEKSI_FIRESTORE = os.getenv("KOLEKSI_FIRESTORE", "permintaan_pendampingan")
 
 # --- Foto verifikasi petugas (O1) ---
-# Cuplikan anonim (dipikselkan + wajah di-blur Haar, JPEG q60) disimpan base64
-# di koleksi permintaan_foto/{idTugas}, dihapus otomatis setelah TTL.
+# Cuplikan disimpan base64 di koleksi permintaan_foto/{idTugas}, dihapus
+# otomatis setelah TTL. FOTO_ANONIM=false (bawaan demo): cuplikan asli,
+# hanya untuk peserta yang setuju; true: blur wajah + pikselasi (produksi).
 FOTO_AKTIF = os.getenv("FOTO_AKTIF", "true").strip().lower() in ("1", "true", "ya", "yes")
+FOTO_ANONIM = os.getenv("FOTO_ANONIM", "false").strip().lower() in ("1", "true", "ya", "yes")
 FOTO_TTL_DETIK = int(os.getenv("FOTO_TTL_DETIK", "600"))  # 600 = 10 menit
-FOTO_MAKS_PIKSEL = int(os.getenv("FOTO_MAKS_PIKSEL", "160"))  # sisi terpanjang
+FOTO_MAKS_PIKSEL = int(os.getenv("FOTO_MAKS_PIKSEL", "480"))  # sisi terpanjang
 
 
 # ---------------------------------------------------------------------------
@@ -191,15 +196,22 @@ def buat_model():
 
 
 # ---------------------------------------------------------------------------
-# Foto verifikasi petugas (O1): cuplikan anonim, base64 di Firestore
+# Foto verifikasi petugas (O1): cuplikan base64 di Firestore
 # ---------------------------------------------------------------------------
-# Kontrak PROJECT.md bagian 4/12: maks FOTO_MAKS_PIKSEL px, dipikselkan, wajah
-# di-blur (Haar cascade), JPEG q60, disimpan maksimal FOTO_TTL_DETIK lalu
-# dihapus otomatis. Tidak ada file foto ditulis ke disk — semua di RAM.
+# Kontrak PROJECT.md bagian 4/12: demo dengan peserta yang setuju boleh memakai
+# cuplikan asli (maks FOTO_MAKS_PIKSEL px, JPEG q80); FOTO_ANONIM=true memakai
+# cara lama (blur wajah Haar + pikselasi, maks 160 px, JPEG q60) — wajib untuk
+# produksi. Disimpan maksimal FOTO_TTL_DETIK lalu dihapus otomatis. Tidak ada
+# file foto ditulis ke disk — semua di RAM.
 
 KOLEKSI_FOTO = "permintaan_foto"  # id dokumen = id dokumen tugas
-FOTO_KUALITAS_JPEG = 60
+FOTO_KUALITAS_JPEG = 80  # cuplikan asli (demo)
+FOTO_KUALITAS_ANONIM = 60  # cara lama: cuplikan anonim
+FOTO_MAKS_PIKSEL_ANONIM = 160  # cara lama membatasi sisi terpanjang ke 160 px
 PIKSEL_BLOK = 8  # perkecil 8x lalu perbesar nearest = efek pikselasi
+# Batas aman panjang string base64: dokumen Firestore maks 1 MiB, jadi base64
+# dijaga jauh di bawahnya (700 ribu karakter ~ 525 KB biner).
+FOTO_BATAS_BASE64 = 700_000
 
 _CASCADE_WAJAH = None  # None = belum dimuat; False = tidak tersedia
 
@@ -228,15 +240,17 @@ def deteksi_wajah(gray):
 
 
 def anonimkan_crop(crop, maks_piks=FOTO_MAKS_PIKSEL):
-    """Cuplikan BGR -> bytes JPEG anonim, atau None bila gagal.
+    """Cuplikan BGR -> bytes JPEG anonim (cara lama), atau None bila gagal.
 
-    Urutan: blur wajah (Haar) -> perkecil sisi terpanjang <= maks_piks ->
-    pikselkan -> encode JPEG q60. Kegagalan apa pun tidak boleh melempar:
-    tugas tetap dibuat tanpa foto.
+    Urutan: blur wajah (Haar) -> perkecil sisi terpanjang <= min(maks_piks,
+    160) -> pikselkan -> encode JPEG q60. Dipakai saat FOTO_ANONIM=true
+    (wajib untuk produksi). Kegagalan apa pun tidak boleh melempar: tugas
+    tetap dibuat tanpa foto.
     """
     try:
         if crop is None or crop.size == 0:
             return None
+        maks_piks = min(maks_piks, FOTO_MAKS_PIKSEL_ANONIM)
         hasil = crop.copy()
         gray = cv2.cvtColor(hasil, cv2.COLOR_BGR2GRAY)
         for (x, y, w, h) in deteksi_wajah(gray):
@@ -271,12 +285,63 @@ def anonimkan_crop(crop, maks_piks=FOTO_MAKS_PIKSEL):
             interpolation=cv2.INTER_NEAREST,
         )
         ok, buf = cv2.imencode(
-            ".jpg", hasil, [int(cv2.IMWRITE_JPEG_QUALITY), FOTO_KUALITAS_JPEG]
+            ".jpg", hasil, [int(cv2.IMWRITE_JPEG_QUALITY), FOTO_KUALITAS_ANONIM]
         )
         return buf.tobytes() if ok else None
     except Exception as e:
         print(f"[peringatan] Anonimisasi cuplikan gagal: {e}")
         return None
+
+
+def crop_asli(crop, maks_piks=FOTO_MAKS_PIKSEL):
+    """Cuplikan BGR -> bytes JPEG ASLI (tanpa blur/pikselasi), atau None.
+
+    Untuk demo hackathon dengan peserta yang setuju (FOTO_ANONIM=false).
+    Hanya diperkecil bila sisi terpanjang > maks_piks, lalu encode JPEG q80.
+    Bila hasil base64 masih melebihi FOTO_BATAS_BASE64 (foto sangat ramai/
+    noise), ukuran & kualitas diturunkan bertahap sampai muat — dokumen
+    Firestore tidak boleh mendekati batas 1 MiB.
+    """
+    try:
+        if crop is None or crop.size == 0:
+            return None
+        sisi = maks_piks
+        kualitas = FOTO_KUALITAS_JPEG
+        while True:
+            hasil = crop
+            tinggi, lebar = hasil.shape[:2]
+            skala = sisi / max(tinggi, lebar)
+            if skala < 1:
+                hasil = cv2.resize(
+                    hasil,
+                    (max(1, int(lebar * skala)), max(1, int(tinggi * skala))),
+                    interpolation=cv2.INTER_AREA,
+                )
+            ok, buf = cv2.imencode(
+                ".jpg", hasil, [int(cv2.IMWRITE_JPEG_QUALITY), kualitas]
+            )
+            if not ok:
+                return None
+            data = buf.tobytes()
+            # Panjang base64 = 4/3 ukuran biner (dibulatkan ke kelipatan 4).
+            if (len(data) + 2) // 3 * 4 <= FOTO_BATAS_BASE64 or sisi <= 160:
+                return data
+            sisi = max(160, int(sisi * 0.8))
+            kualitas = max(50, kualitas - 10)
+    except Exception as e:
+        print(f"[peringatan] Cuplikan asli gagal diproses: {e}")
+        return None
+
+
+def siapkan_foto(crop):
+    """Pilih jalur cuplikan sesuai FOTO_ANONIM; None bila gagal/di luar mode.
+
+    false (bawaan demo): cuplikan asli maks 480 px q80. true: cara lama,
+    blur wajah + pikselasi maks 160 px q60 (produksi).
+    """
+    if FOTO_ANONIM:
+        return anonimkan_crop(crop)
+    return crop_asli(crop)
 
 
 def crop_dari_kotak(frame, kotak, margin=0.1):
@@ -383,7 +448,7 @@ class PengirimFirebase:
 
         [jumlah_terdeteksi] = banyaknya kursi roda di layar saat tugas dibuat;
         [id_lacak] = track ID ByteTrack (None untuk mode roboflow tanpa tracking);
-        [cuplikan] = crop BGR mentah orang ini untuk foto verifikasi anonim
+        [cuplikan] = crop BGR mentah orang ini untuk foto verifikasi
         (None = tanpa foto; mode roboflow selalu None).
         Mencoba ulang beberapa kali bila jaringan/Firestore sedang bermasalah.
         Mengembalikan True bila terkirim, False bila semua percobaan gagal —
@@ -423,17 +488,18 @@ class PengirimFirebase:
         return False
 
     def _kirim_foto(self, ref, cuplikan):
-        """Menulis cuplikan anonim ke permintaan_foto/{idTugas}, lalu menandai
-        tugas dengan adaFoto: true. Gagal di langkah mana pun: tugas TETAP
-        dibuat tanpa foto (PROJECT.md bagian 4). Foto yang sudah tertulis
-        selalu dijadwalkan hapus, walau penandaan adaFoto kemudian gagal.
+        """Menulis cuplikan verifikasi ke permintaan_foto/{idTugas}, lalu
+        menandai tugas dengan adaFoto: true. Jalur asli/anonim mengikuti
+        FOTO_ANONIM. Gagal di langkah mana pun: tugas TETAP dibuat tanpa foto
+        (PROJECT.md bagian 4). Foto yang sudah tertulis selalu dijadwalkan
+        hapus, walau penandaan adaFoto kemudian gagal.
         """
         if not FOTO_AKTIF or cuplikan is None or self.penghapus is None:
             return
         try:
-            jpeg = anonimkan_crop(cuplikan)
+            jpeg = siapkan_foto(cuplikan)
             if jpeg is None:
-                print("[peringatan] Cuplikan gagal dianonimkan; tugas tanpa foto.")
+                print("[peringatan] Cuplikan gagal diproses; tugas tanpa foto.")
                 return
             sekarang = datetime.now(timezone.utc)
             self.db.collection(KOLEKSI_FOTO).document(ref.id).set({
@@ -443,8 +509,9 @@ class PengirimFirebase:
             })
             self.penghapus.jadwalkan(ref.id, time.time() + FOTO_TTL_DETIK)
             ref.update({"adaFoto": True})
+            jenis = "anonim" if FOTO_ANONIM else "asli"
             print(
-                f"[firebase] Cuplikan anonim {ref.id} ditulis "
+                f"[firebase] Cuplikan {jenis} {ref.id} ditulis "
                 f"(TTL {FOTO_TTL_DETIK} detik)"
             )
         except Exception as e:
