@@ -3,3 +3,5 @@ detector/.env
 detector/venv/
 *.pt
 .DS_Store
+.reveal-study/
+video/
