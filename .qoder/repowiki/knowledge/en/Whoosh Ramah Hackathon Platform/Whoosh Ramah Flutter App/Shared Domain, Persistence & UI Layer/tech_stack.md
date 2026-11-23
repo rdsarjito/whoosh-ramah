@@ -1,1 +1,0 @@
-Flutter + Material Components (via the `material_ui` package used by bottom nav) and `cloud_firestore` for real-time Firestore access; timestamps use Firestore `Timestamp`/`FieldValue.serverTimestamp()`.

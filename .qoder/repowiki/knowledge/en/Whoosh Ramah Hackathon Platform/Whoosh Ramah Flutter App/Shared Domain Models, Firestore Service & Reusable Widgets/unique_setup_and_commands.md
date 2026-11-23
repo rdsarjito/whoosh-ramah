@@ -1,0 +1,1 @@
+The service's constructor accepts an optional positional `FirebaseFirestore` instance so unit tests can pass a mock without initializing Firebase; production code omits the argument and lazily resolves `FirebaseFirestore.instance` through the `_db` getter.

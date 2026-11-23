@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: whoosh_ramah_app/shared_layers
-title: Shared Domain, Persistence & UI Layer
+title: Shared Domain Models, Firestore Service & Reusable Widgets
 scope:
     - whoosh_ramah/lib/models/
     - whoosh_ramah/lib/services/

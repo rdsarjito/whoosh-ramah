@@ -1,1 +1,1 @@
-Flutter passenger-assistance app that boots Firebase, renders a shared design system, and composes passenger screens over shared domain models and Firestore persistence.
+Flutter passenger-assistance app that bootstraps Firebase, exposes a shared design system and domain layer, and composes passenger-facing screens over Firestore-backed requests.

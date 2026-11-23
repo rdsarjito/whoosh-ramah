@@ -3,7 +3,7 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-11-22T13:42:49Z"
+exported_at: "2026-11-23T11:06:15Z"
 modules:
     "":
         dir_name: Whoosh Ramah Hackathon Platform
@@ -76,8 +76,8 @@ modules:
         related_to:
             - path: whoosh_ramah_app/shared_layers
     whoosh_ramah_app/shared_layers:
-        dir_name: Shared Domain, Persistence & UI Layer
-        title: Shared Domain, Persistence & UI Layer
+        dir_name: Shared Domain Models, Firestore Service & Reusable Widgets
+        title: Shared Domain Models, Firestore Service & Reusable Widgets
         scope:
             - whoosh_ramah/lib/models/
             - whoosh_ramah/lib/services/
