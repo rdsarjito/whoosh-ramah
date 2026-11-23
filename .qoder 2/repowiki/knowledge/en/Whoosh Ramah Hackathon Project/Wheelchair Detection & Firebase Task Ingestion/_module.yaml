@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: wheelchair_detector
-title: Wheelchair Detection & Firebase Task Ingestion
-scope:
-    - detector/
-source_files: []
-depends_on: []
-related_to:
-    - path: whoosh_ramah_app/shared_layers

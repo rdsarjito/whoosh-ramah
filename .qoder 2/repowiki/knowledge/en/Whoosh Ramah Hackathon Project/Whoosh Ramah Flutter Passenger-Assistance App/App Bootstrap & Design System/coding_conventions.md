@@ -1,4 +1,0 @@
-- Design tokens are exposed as `static const` fields inside private-constructor classes (`AppColors._`, `AppRadius._`, `AppShadows._`, `AppTheme._`) so they can only be accessed as constants from outside.
-- Role semantics drive color naming: passenger-related tokens use `red*` names, officer-related use `blue*`, and family/success use `green*`, mirroring the three user roles defined in the design spec.
-- Typography and spacing values are centralized in `AppTheme._textTheme()` and `AppRadius` rather than being scattered across screens, with sizes and weights pinned to the PROJECT.md design specification.
-- Button styles are defined once in `_primaryButton()` / `_secondaryButton()` helpers and applied through `ElevatedButtonThemeData` / `OutlinedButtonThemeData` so all buttons inherit pill shape, minimum size, and tap target padding.

@@ -1,1 +1,0 @@
-Flutter application entry point that initializes Firebase and launches the root MaterialApp, plus the shared design system (colors, typography, shadows, button styles) consumed by every screen.

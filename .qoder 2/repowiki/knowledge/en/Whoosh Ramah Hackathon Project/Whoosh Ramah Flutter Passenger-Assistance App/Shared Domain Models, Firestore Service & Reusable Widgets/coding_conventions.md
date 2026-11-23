@@ -1,5 +1,0 @@
-- Domain enums store their Firestore wire value in a `value` field and expose a static `dariValue(String?)` factory with a safe fallback to a default member.
-- Firestore persistence is implemented as paired `fromFirestore`/`toFirestore` factories on each model, with a separate `fromMap` helper so tests can construct objects without a live Firestore instance.
-- Services accept an optional injected `FirebaseFirestore` constructor parameter and lazily resolve `_db` so production code uses `FirebaseFirestore.instance` while tests supply a mock.
-- Demo fixtures are centralized in `DummyData` as `static const` singletons whose field names mirror Firestore document fields to keep model construction uniform.
-- Widgets are built as small, focused `StatelessWidget`s with private nested classes (e.g. `_NavItem`) and rely on `MergeSemantics`/`Semantics` for accessibility rather than custom semantics.

@@ -1,1 +1,0 @@
-Shared Dart layer providing the Permintaan domain model, its Firestore persistence service, demo data, and reusable UI widgets consumed across Whoosh Ramah screens.

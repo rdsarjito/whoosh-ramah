@@ -1,3 +1,0 @@
-- Firestore field names and enum values are taken verbatim from PROJECT.md section 4 rather than redefined locally.
-- Screens implement the role triad Penumpang / Petugas / Keluarga inside a single Flutter app instead of separate apps.
-- UI layout, colors, typography, and corner radii follow the `design/` HTML mockups as the visual spec.

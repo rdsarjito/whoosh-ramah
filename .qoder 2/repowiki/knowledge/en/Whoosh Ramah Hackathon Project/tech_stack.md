@@ -1,1 +1,0 @@
-Flutter + Firebase (Cloud Firestore, firebase_core, cloud_firestore) for the app; Python 3.12 (per `mise.toml`) + YOLO-World for the detector; static HTML/CSS mockups drive visual consistency across all three children.
